@@ -21,20 +21,20 @@ export const SiloHero: React.FC = () => {
   const borderRadius = Math.round(16 + scrollProgress * 20);
 
   return (
-    <section className="relative w-full pt-32 sm:pt-40 pb-16 sm:pb-24 px-4 sm:px-8 max-w-7xl mx-auto overflow-hidden">
-      {/* Top Metadata Header (SILO layout style adapted for DSC) */}
-      <div className="hidden sm:flex items-center justify-between text-[11px] font-mono tracking-widest text-slate-400 mb-6 px-3 uppercase">
+    <section className="relative w-full pt-28 sm:pt-36 pb-16 sm:pb-24 px-4 sm:px-8 max-w-7xl mx-auto overflow-hidden">
+      {/* Top Metadata Header */}
+      <div className="hidden sm:flex items-center justify-between text-[11px] font-mono tracking-widest text-slate-500 mb-6 px-3 uppercase">
         <div className="flex items-center gap-2">
-          <span className="size-2 rounded-full bg-sky-400 animate-pulse" />
-          <span className="font-bold text-sky-400 tracking-wider">OPERATIONAL // NODE-01</span>
+          <span className="size-2 rounded-full bg-blue-600 animate-pulse" />
+          <span className="font-bold text-[#0052cc] tracking-wider">DATA SCIENCE CLUB // VIT BHOPAL</span>
         </div>
 
-        <div className="text-center tracking-[0.2em] text-slate-400">
+        <div className="text-center tracking-[0.2em] text-slate-500">
           <span>MACHINE LEARNING // DISTRIBUTED SYSTEMS // OPEN INTELLIGENCE</span>
         </div>
 
         <div className="text-right">
-          <span className="text-sky-400 font-bold">EST. 2019</span>
+          <span className="text-[#0052cc] font-bold">EST. 2019</span>
         </div>
       </div>
 
@@ -46,30 +46,28 @@ export const SiloHero: React.FC = () => {
           borderRadius: `${borderRadius}px`,
           transition: "transform 0.1s ease-out, border-radius 0.15s ease-out",
         }}
-        className="relative w-full aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9] max-h-[720px] overflow-hidden border border-sky-400/25 bg-[#030612] shadow-[0_25px_80px_rgba(0,0,0,0.9)]"
+        className="relative w-full aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9] max-h-[720px] overflow-hidden border-2 border-slate-200 bg-gradient-to-br from-white via-blue-50/30 to-slate-50 shadow-xl shadow-blue-500/5"
       >
-        {/* Subtle Ambient Cyber Grid & Glow Background */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-950/40 via-[#030612] to-black pointer-events-none" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0ea5e912_1px,transparent_1px),linear-gradient(to_bottom,#0ea5e912_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-sky-500/10 blur-[120px] rounded-full pointer-events-none" />
+        {/* Subtle Ambient White & Blue Grid Pattern */}
+        <div className="absolute inset-0 wb-grid-pattern opacity-40 pointer-events-none" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-blue-400/10 blur-[120px] rounded-full pointer-events-none" />
 
-        {/* Ambient Dark & Blue Vignette Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60 pointer-events-none" />
-        <div className="absolute inset-0 bg-radial-at-c from-transparent via-black/20 to-black/85 pointer-events-none" />
+        {/* Ambient Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-white/30 to-transparent pointer-events-none" />
 
         {/* Bottom Banner Content */}
         <div className="absolute inset-x-0 bottom-0 p-6 sm:p-10 lg:p-14 flex flex-col sm:flex-row sm:items-end justify-between gap-6 z-10">
-          <div className="space-y-2 sm:space-y-3 max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-950/40 px-3.5 py-1 text-[10px] sm:text-xs font-mono font-semibold uppercase tracking-[0.2em] text-sky-300 backdrop-blur-md">
-              <span className="size-1.5 rounded-full bg-sky-400 animate-pulse" />
+          <div className="space-y-3 sm:space-y-4 max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50/90 px-3.5 py-1 text-[10px] sm:text-xs font-mono font-semibold uppercase tracking-[0.2em] text-blue-700 backdrop-blur-md shadow-xs">
+              <span className="size-1.5 rounded-full bg-blue-600 animate-pulse" />
               <span>DATA SCIENCE CLUB — VIT BHOPAL</span>
             </div>
 
-            <h1 className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight text-white uppercase drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)] leading-none">
-              DSC VIT BHOPAL
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight text-slate-900 uppercase leading-none font-sans">
+              DSC VIT <span className="text-[#0052cc]">BHOPAL</span>
             </h1>
 
-            <p className="text-xs sm:text-sm font-mono text-slate-300 max-w-xl leading-relaxed drop-shadow">
+            <p className="text-xs sm:text-base font-sans text-slate-600 max-w-xl leading-relaxed">
               Turning raw computational curiosities into production neural models, distributed data
               pipelines, and open-source intelligence.
             </p>
@@ -78,13 +76,13 @@ export const SiloHero: React.FC = () => {
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
             <a
               href="#events"
-              className="inline-flex items-center justify-center rounded-full bg-sky-400 px-7 sm:px-8 py-3.5 text-xs sm:text-sm font-mono font-bold tracking-wider text-black uppercase hover:bg-sky-300 hover:scale-[1.03] transition-all duration-300 shadow-[0_0_25px_rgba(56,189,248,0.4)] cursor-pointer"
+              className="inline-flex items-center justify-center rounded-full bg-[#0052cc] px-7 sm:px-8 py-3.5 text-xs sm:text-sm font-mono font-bold tracking-wider text-white uppercase hover:bg-blue-700 hover:scale-[1.02] transition-all duration-300 shadow-md cursor-pointer"
             >
               EXPLORE SPRINTS
             </a>
             <Link
               to="/join"
-              className="inline-flex items-center justify-center rounded-full border border-sky-400/40 bg-black/60 px-6 sm:px-7 py-3.5 text-xs sm:text-sm font-mono font-bold tracking-wider text-white uppercase hover:border-sky-400 hover:bg-sky-400/15 hover:shadow-[0_0_20px_rgba(56,189,248,0.25)] transition-all duration-300 cursor-pointer backdrop-blur-md"
+              className="inline-flex items-center justify-center rounded-full border-2 border-slate-300 hover:border-blue-600 bg-white/95 px-6 sm:px-7 py-3.5 text-xs sm:text-sm font-mono font-bold tracking-wider text-slate-800 hover:text-blue-700 uppercase hover:bg-blue-50/80 transition-all duration-300 cursor-pointer shadow-xs backdrop-blur-md"
             >
               <span>JOIN CORE</span>
               <ArrowRight className="size-3.5 ml-1.5" />

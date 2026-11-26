@@ -1,8 +1,8 @@
 import React from "react";
-import RadialMenu from "@/components/site/RadialMenu";
+import { WhiteBlueNavbar } from "@/components/navigation/WhiteBlueNavbar";
 
 export const Navbar: React.FC = () => {
-  return <RadialMenu radius={180} startAngle={180} endAngle={90} />;
+  return <WhiteBlueNavbar />;
 };
 
 export default Navbar;

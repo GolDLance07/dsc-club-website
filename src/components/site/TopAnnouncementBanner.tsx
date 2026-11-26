@@ -48,9 +48,9 @@ export const TopAnnouncementBanner: React.FC = () => {
         left: 0,
         width: "100%",
         zIndex: 9999,
-        background: "linear-gradient(90deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)",
-        borderBottom: "1px solid rgba(0, 210, 255, 0.3)",
-        boxShadow: "0 4px 20px rgba(0, 210, 255, 0.15)",
+        background: "#0052cc",
+        borderBottom: "1px solid #004099",
+        boxShadow: "0 2px 10px rgba(0, 82, 204, 0.15)",
         color: "#ffffff",
         fontSize: "13px",
         fontWeight: 600,
@@ -60,7 +60,6 @@ export const TopAnnouncementBanner: React.FC = () => {
         justifyContent: "center",
         gap: "12px",
         textAlign: "center",
-        backdropFilter: "blur(12px)",
       }}
     >
       <span
@@ -68,7 +67,7 @@ export const TopAnnouncementBanner: React.FC = () => {
           display: "inline-flex",
           alignItems: "center",
           gap: "6px",
-          color: "#00d2ff",
+          color: "#ffffff",
           letterSpacing: "0.02em",
         }}
       >
@@ -82,7 +81,7 @@ export const TopAnnouncementBanner: React.FC = () => {
         style={{
           background: "none",
           border: "none",
-          color: "rgba(255, 255, 255, 0.6)",
+          color: "rgba(255, 255, 255, 0.8)",
           fontSize: "16px",
           fontWeight: "bold",
           cursor: "pointer",
@@ -92,7 +91,7 @@ export const TopAnnouncementBanner: React.FC = () => {
         }}
         title="Dismiss announcement"
         onMouseEnter={(e) => (e.currentTarget.style.color = "#ffffff")}
-        onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255, 255, 255, 0.6)")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255, 255, 255, 0.8)")}
       >
         ×
       </button>

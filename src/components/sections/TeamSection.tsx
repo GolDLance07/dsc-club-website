@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Search, Users, Shield, Terminal, ArrowRight } from "lucide-react";
+import { Search, Users, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 export interface TeamMember {
@@ -181,19 +181,19 @@ export const TeamSection: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12">
         <div>
           <div className="flex items-center gap-3">
-            <span className="size-8 rounded-xl border border-sky-400/40 bg-sky-950/40 flex items-center justify-center font-mono text-xs font-bold text-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.2)]">
+            <span className="size-8 rounded-xl border border-blue-200 bg-blue-50 flex items-center justify-center font-mono text-xs font-bold text-[#0052cc] shadow-sm">
               04
             </span>
-            <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-950/30 px-3.5 py-1 text-[11px] font-mono uppercase tracking-[0.2em] text-sky-400">
-              <span className="size-1.5 rounded-full bg-sky-400" />
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1 text-[11px] font-mono uppercase tracking-[0.2em] text-[#0052cc]">
+              <span className="size-1.5 rounded-full bg-[#0052cc]" />
               <span>CORE DOSSIER & ROSTER</span>
             </div>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl font-black uppercase tracking-tight text-white mt-3 leading-none">
+          <h1 className="text-4xl sm:text-6xl font-black uppercase tracking-tight text-slate-900 mt-3 leading-none">
             MEET THE TEAM
           </h1>
-          <p className="text-xs sm:text-sm font-mono text-slate-400 mt-2 max-w-xl">
+          <p className="text-xs sm:text-sm font-mono text-slate-600 mt-2 max-w-xl">
             The presidents, domain leads, machine learning researchers, and developers orchestrating
             DSC VIT Bhopal.
           </p>
@@ -201,13 +201,13 @@ export const TeamSection: React.FC = () => {
 
         {/* Real-time Search Box */}
         <div className="relative w-full sm:w-72">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-sky-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-[#0052cc]" />
           <input
             type="text"
             placeholder="Search member or role..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 rounded-full bg-black/60 border border-sky-400/30 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400 focus:shadow-[0_0_20px_rgba(56,189,248,0.25)] transition-all"
+            className="w-full pl-11 pr-4 py-2.5 rounded-full bg-white border border-slate-200 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm"
           />
         </div>
       </div>
@@ -228,12 +228,12 @@ export const TeamSection: React.FC = () => {
               onClick={() => setActiveGroup(g)}
               className={`px-4 py-2 rounded-full text-xs font-mono uppercase tracking-wider whitespace-nowrap transition-all duration-300 cursor-pointer border ${
                 isActive
-                  ? "bg-sky-400 text-black border-sky-400 font-bold shadow-[0_0_20px_rgba(56,189,248,0.35)]"
-                  : "bg-[#050814] text-slate-300 border-sky-400/20 hover:border-sky-400/60 hover:text-white"
+                  ? "bg-[#0052cc] text-white border-[#0052cc] font-bold shadow-sm"
+                  : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900"
               }`}
             >
               <span>{g}</span>
-              <span className={`ml-2 text-[10px] ${isActive ? "text-black/80" : "text-sky-400"}`}>
+              <span className={`ml-2 text-[10px] ${isActive ? "text-white/80" : "text-[#0052cc]"}`}>
                 ({count})
               </span>
             </button>
@@ -246,40 +246,40 @@ export const TeamSection: React.FC = () => {
         {filteredMembers.map((m) => (
           <div
             key={m.name}
-            className="group relative rounded-3xl border border-sky-400/20 bg-[#050814] p-5 flex flex-col justify-between hover:border-sky-400/80 hover:shadow-[0_0_35px_rgba(56,189,248,0.25)] hover:-translate-y-1.5 transition-all duration-300 ease-out"
+            className="group relative rounded-3xl border border-slate-200 bg-white p-5 flex flex-col justify-between hover:border-blue-500 hover:shadow-[0_10px_30px_rgba(0,82,204,0.08)] hover:-translate-y-1 transition-all duration-300 ease-out"
           >
             <div>
               <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400 font-bold bg-sky-950/50 px-2.5 py-0.5 rounded-md border border-sky-400/30">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[#0052cc] font-bold bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200">
                   {m.group.replace(" Team", "")}
                 </span>
-                <span className="size-2 rounded-full bg-sky-400/60 group-hover:bg-sky-400 group-hover:shadow-[0_0_8px_#38bdf8] transition-all" />
+                <span className="size-2 rounded-full bg-blue-500/60 group-hover:bg-[#0052cc] transition-all" />
               </div>
 
               {/* Avatar & Ident */}
               <div className="flex items-center gap-4 my-2">
-                <div className="size-14 rounded-2xl border border-sky-400/30 p-0.5 bg-black overflow-hidden group-hover:border-sky-400 group-hover:scale-105 transition-all duration-300 shrink-0">
+                <div className="size-14 rounded-2xl border border-slate-200 p-0.5 bg-blue-50 overflow-hidden group-hover:border-blue-400 group-hover:scale-105 transition-all duration-300 shrink-0">
                   <img
-                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=020617&color=38bdf8&bold=true&font-size=0.4`}
+                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=eff6ff&color=0052cc&bold=true&font-size=0.4`}
                     alt={m.name}
                     className="w-full h-full object-cover rounded-xl"
                   />
                 </div>
 
                 <div className="min-w-0">
-                  <h3 className="text-base font-bold text-white group-hover:text-sky-300 transition-colors truncate">
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0052cc] transition-colors truncate">
                     {m.name}
                   </h3>
-                  <p className="text-xs font-mono text-sky-400 font-semibold mt-0.5 truncate">
+                  <p className="text-xs font-mono text-[#0052cc] font-semibold mt-0.5 truncate">
                     {m.role}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-5 pt-3 border-t border-sky-400/15 flex items-center justify-between text-[11px] font-mono text-slate-500">
+            <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-mono text-slate-400">
               <span>VIT BHOPAL</span>
-              <span className="text-sky-400/80 group-hover:text-sky-400 transition-colors">
+              <span className="text-blue-600 font-semibold">
                 ACTIVE
               </span>
             </div>
@@ -288,22 +288,22 @@ export const TeamSection: React.FC = () => {
       </div>
 
       {filteredMembers.length === 0 && (
-        <div className="text-center py-20 rounded-3xl border border-sky-400/20 bg-[#050814] my-8">
-          <Users className="size-10 text-sky-400 mx-auto mb-3 opacity-60" />
-          <h3 className="text-xl font-bold text-white">No members matched</h3>
-          <p className="text-xs font-mono text-slate-400 mt-2">
+        <div className="text-center py-20 rounded-3xl border border-slate-200 bg-slate-50 my-8">
+          <Users className="size-10 text-[#0052cc] mx-auto mb-3 opacity-60" />
+          <h3 className="text-xl font-bold text-slate-900">No members matched</h3>
+          <p className="text-xs font-mono text-slate-600 mt-2">
             Try adjusting your search criteria or selecting a different department tab.
           </p>
         </div>
       )}
 
       {/* Recruitment Callout */}
-      <div className="mt-16 rounded-3xl border border-sky-400/25 bg-[#030610] p-8 sm:p-12 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
+      <div className="mt-16 rounded-3xl border border-slate-200 bg-slate-50/70 p-8 sm:p-12 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left shadow-sm">
         <div className="space-y-2">
-          <h3 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
+          <h3 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight">
             WANT TO JOIN OUR ROSTER?
           </h3>
-          <p className="text-xs sm:text-sm font-mono text-slate-400 max-w-xl">
+          <p className="text-xs sm:text-sm font-mono text-slate-600 max-w-xl">
             Core team applications are currently open across technical development, AI research,
             event ops, and creative design.
           </p>
@@ -311,7 +311,7 @@ export const TeamSection: React.FC = () => {
 
         <Link
           to="/join"
-          className="inline-flex items-center gap-2 rounded-full bg-sky-400 px-8 py-3.5 text-xs font-mono font-bold tracking-wider text-black uppercase hover:bg-sky-300 hover:scale-[1.03] transition-all duration-300 shadow-[0_0_25px_rgba(56,189,248,0.4)] cursor-pointer shrink-0"
+          className="inline-flex items-center gap-2 rounded-full bg-[#0052cc] px-8 py-3.5 text-xs font-mono font-bold tracking-wider text-white uppercase hover:bg-blue-700 hover:scale-[1.03] transition-all duration-300 shadow-md cursor-pointer shrink-0"
         >
           <span>APPLY FOR CORE TEAM</span>
           <ArrowRight className="size-3.5" />

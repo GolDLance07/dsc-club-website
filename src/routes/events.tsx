@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Navbar } from "@/components/sections/Navbar";
 import { FooterSection } from "@/components/sections/FooterSection";
 import { SiloEventModal, SiloEventData } from "@/components/silo/SiloEventModal";
-import { Calendar, Clock, MapPin, ArrowRight, Ticket, Filter } from "lucide-react";
+import { Calendar, Clock, MapPin, Ticket } from "lucide-react";
 import hackathonImg from "@/assets/event-hackathon.jpg";
 import workshopImg from "@/assets/event-workshop.jpg";
 import talkImg from "@/assets/event-talk.jpg";
@@ -152,7 +152,7 @@ function Events() {
   const displayList = tab === "upcoming" ? upcomingEvents : pastEvents;
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-sky-400 selection:text-black">
+    <div className="min-h-screen bg-transparent text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-900">
       <Navbar />
 
       <main className="relative pt-32 sm:pt-40 pb-20 px-4 sm:px-8 max-w-7xl mx-auto">
@@ -160,32 +160,32 @@ function Events() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12">
           <div>
             <div className="flex items-center gap-3">
-              <span className="size-8 rounded-xl border border-sky-400/40 bg-sky-950/40 flex items-center justify-center font-mono text-xs font-bold text-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.2)]">
+              <span className="size-8 rounded-xl border border-blue-200 bg-blue-50 flex items-center justify-center font-mono text-xs font-bold text-[#0052cc] shadow-sm">
                 03
               </span>
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-950/30 px-3.5 py-1 text-[11px] font-mono uppercase tracking-[0.2em] text-sky-400">
-                <span className="size-1.5 rounded-full bg-sky-400" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1 text-[11px] font-mono uppercase tracking-[0.2em] text-[#0052cc]">
+                <span className="size-1.5 rounded-full bg-[#0052cc]" />
                 <span>CALENDAR & SPRINTS</span>
               </div>
             </div>
 
-            <h1 className="text-4xl sm:text-6xl font-black uppercase tracking-tight text-white mt-3 leading-none">
+            <h1 className="text-4xl sm:text-6xl font-black uppercase tracking-tight text-slate-900 mt-3 leading-none">
               EVENTS & HACKATHONS
             </h1>
-            <p className="text-xs sm:text-sm font-mono text-slate-400 mt-2 max-w-xl">
+            <p className="text-xs sm:text-sm font-mono text-slate-600 mt-2 max-w-xl">
               From 36-hour hackathons to deep learning bootcamps — reserve seats or explore past
               telemetry archives.
             </p>
           </div>
 
           {/* Tab Selector Buttons */}
-          <div className="flex items-center gap-2 p-1.5 rounded-full border border-sky-400/25 bg-black/60 backdrop-blur-md">
+          <div className="flex items-center gap-2 p-1.5 rounded-full border border-slate-200 bg-white/80 backdrop-blur-md shadow-sm">
             <button
               onClick={() => setTab("upcoming")}
               className={`px-5 py-2 rounded-full text-xs font-mono uppercase tracking-wider transition-all duration-300 cursor-pointer ${
                 tab === "upcoming"
-                  ? "bg-sky-400 text-black font-bold shadow-[0_0_20px_rgba(56,189,248,0.4)]"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-[#0052cc] text-white font-bold shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               UPCOMING ({upcomingEvents.length})
@@ -194,8 +194,8 @@ function Events() {
               onClick={() => setTab("past")}
               className={`px-5 py-2 rounded-full text-xs font-mono uppercase tracking-wider transition-all duration-300 cursor-pointer ${
                 tab === "past"
-                  ? "bg-sky-400 text-black font-bold shadow-[0_0_20px_rgba(56,189,248,0.4)]"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-[#0052cc] text-white font-bold shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               ARCHIVE ({pastEvents.length})
@@ -209,23 +209,23 @@ function Events() {
             <article
               key={evt.id}
               onClick={() => setSelectedEvent(evt)}
-              className="group relative rounded-3xl border border-sky-400/20 bg-[#050814] p-5 sm:p-6 flex flex-col justify-between hover:border-sky-400/80 hover:shadow-[0_0_40px_rgba(56,189,248,0.22)] hover:-translate-y-1.5 transition-all duration-300 ease-out cursor-pointer"
+              className="group relative rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-sm p-5 sm:p-6 flex flex-col justify-between hover:border-blue-500 hover:shadow-[0_12px_35px_rgba(0,82,204,0.1)] hover:-translate-y-1 transition-all duration-300 ease-out cursor-pointer"
             >
-              {/* Poster Art with Cyber Overlay */}
-              <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-sky-400/20 bg-slate-950">
+              {/* Poster Art with Overlay */}
+              <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-slate-200 bg-slate-100">
                 <img
                   src={evt.image}
                   alt={evt.title}
-                  className="w-full h-full object-cover filter brightness-90 group-hover:scale-105 transition-transform duration-700 ease-out"
+                  className="w-full h-full object-cover filter brightness-95 group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent" />
 
                 {/* Top Badges */}
                 <div className="absolute top-3 inset-x-3 flex items-center justify-between text-[10px] font-mono tracking-wider">
-                  <span className="text-sky-300 font-bold bg-black/80 px-2.5 py-1 rounded-md border border-sky-400/30 backdrop-blur-md">
+                  <span className="text-[#0052cc] font-bold bg-white/95 px-2.5 py-1 rounded-md border border-slate-200 shadow-sm">
                     DSC LABS
                   </span>
-                  <span className="text-slate-300 uppercase bg-black/80 px-2.5 py-1 rounded-md border border-white/10 backdrop-blur-md">
+                  <span className="text-white uppercase bg-slate-900/80 px-2.5 py-1 rounded-md border border-white/20 backdrop-blur-md">
                     {evt.category}
                   </span>
                 </div>
@@ -233,7 +233,7 @@ function Events() {
                 {/* Floating Status Badge */}
                 {evt.badge && (
                   <div className="absolute bottom-3 right-3">
-                    <span className="bg-sky-400 text-black text-[9px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-lg">
+                    <span className="bg-[#0052cc] text-white text-[9px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-md">
                       {evt.badge}
                     </span>
                   </div>
@@ -242,33 +242,33 @@ function Events() {
 
               {/* Information */}
               <div className="mt-5 space-y-3">
-                <div className="text-[10px] font-mono text-sky-400 uppercase tracking-widest">
+                <div className="text-[10px] font-mono text-[#0052cc] uppercase tracking-widest font-semibold">
                   {evt.date.split(",")[0]}
                 </div>
-                <h2 className="text-xl font-black uppercase text-white tracking-tight leading-snug group-hover:text-sky-300 transition-colors">
+                <h2 className="text-xl font-black uppercase text-slate-900 tracking-tight leading-snug group-hover:text-[#0052cc] transition-colors">
                   {evt.title}
                 </h2>
-                <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
                   {evt.description}
                 </p>
 
-                <div className="space-y-2 text-[11px] font-mono text-slate-400 border-t border-sky-400/15 pt-3.5">
+                <div className="space-y-2 text-[11px] font-mono text-slate-600 border-t border-slate-100 pt-3.5">
                   <div className="flex items-center gap-2">
-                    <Calendar className="size-3.5 text-sky-400 shrink-0" />
-                    <span className="text-slate-300 truncate">{evt.date}</span>
+                    <Calendar className="size-3.5 text-[#0052cc] shrink-0" />
+                    <span className="text-slate-700 truncate">{evt.date}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Clock className="size-3.5 text-sky-400 shrink-0" />
-                    <span className="text-slate-300 truncate">{evt.time}</span>
+                    <Clock className="size-3.5 text-[#0052cc] shrink-0" />
+                    <span className="text-slate-700 truncate">{evt.time}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <MapPin className="size-3.5 text-sky-400 shrink-0" />
-                    <span className="text-slate-300 truncate">{evt.venue}</span>
+                    <MapPin className="size-3.5 text-[#0052cc] shrink-0" />
+                    <span className="text-slate-700 truncate">{evt.venue}</span>
                   </div>
                 </div>
 
                 <div className="pt-3">
-                  <span className="inline-flex w-full items-center justify-center rounded-xl border border-sky-400/30 bg-sky-950/20 py-2.5 text-xs font-mono font-bold uppercase tracking-wider text-sky-300 group-hover:bg-sky-400 group-hover:text-black group-hover:border-sky-400 transition-all duration-300">
+                  <span className="inline-flex w-full items-center justify-center rounded-xl border border-blue-600/30 bg-blue-50/60 py-2.5 text-xs font-mono font-bold uppercase tracking-wider text-blue-700 group-hover:bg-[#0052cc] group-hover:text-white group-hover:border-[#0052cc] transition-all duration-300">
                     VIEW SESSION DETAILS
                   </span>
                 </div>
@@ -278,12 +278,12 @@ function Events() {
         </div>
 
         {/* Quick Registration Callout */}
-        <div className="rounded-3xl border border-sky-400/25 bg-[#030610] p-8 sm:p-12 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
+        <div className="rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-sm p-8 sm:p-12 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left shadow-sm">
           <div className="space-y-2">
-            <h3 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
+            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight">
               LOOKING TO SECURE YOUR ENTRY PASS?
             </h3>
-            <p className="text-xs sm:text-sm font-mono text-slate-400 max-w-xl">
+            <p className="text-xs sm:text-sm font-mono text-slate-600 max-w-xl">
               Access individual and team RSVPs with cryptographic QR check-in passes on the official
               registration desk.
             </p>
@@ -291,7 +291,7 @@ function Events() {
 
           <Link
             to="/register"
-            className="inline-flex items-center gap-2 rounded-full bg-sky-400 px-8 py-3.5 text-xs font-mono font-bold tracking-wider text-black uppercase hover:bg-sky-300 hover:scale-[1.03] transition-all duration-300 shadow-[0_0_25px_rgba(56,189,248,0.4)] cursor-pointer shrink-0"
+            className="inline-flex items-center gap-2 rounded-full bg-[#0052cc] px-8 py-3.5 text-xs font-mono font-bold tracking-wider text-white uppercase hover:bg-blue-700 hover:scale-[1.03] transition-all duration-300 shadow-md cursor-pointer shrink-0"
           >
             <Ticket className="size-4" />
             <span>OPEN REGISTRATION DESK</span>

@@ -16,7 +16,6 @@ import {
   Copy,
   Check,
   RefreshCw,
-  ExternalLink,
   ChevronRight,
   Send,
   HelpCircle,
@@ -41,11 +40,11 @@ const BRANCH_OPTIONS = [
 const YEAR_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 
 const DOMAIN_ICONS: Record<string, React.ReactNode> = {
-  Technical: <Code2 className="size-5 text-cyan-400" />,
-  "AI & Data Science": <Brain className="size-5 text-purple-400" />,
-  "Design & Media": <Palette className="size-5 text-pink-400" />,
-  "Content & Editorial": <FileText className="size-5 text-emerald-400" />,
-  "Management & PR": <Briefcase className="size-5 text-amber-400" />,
+  Technical: <Code2 className="size-5 text-[#0052cc]" />,
+  "AI & Data Science": <Brain className="size-5 text-blue-600" />,
+  "Design & Media": <Palette className="size-5 text-indigo-600" />,
+  "Content & Editorial": <FileText className="size-5 text-sky-600" />,
+  "Management & PR": <Briefcase className="size-5 text-blue-700" />,
 };
 
 export const HiringPortal: React.FC = () => {
@@ -99,10 +98,8 @@ export const HiringPortal: React.FC = () => {
         ]);
         setSettings(currSettings);
         setDomains(currDomains);
-        if (currDomains.length > 0) {
-          setActiveTabDomain(currDomains[0]?.domainName || "Technical");
-          setPrimaryTeam(currDomains[0]?.domainName || "Technical");
-        }
+      } catch (err) {
+        console.error("Failed to load hiring metadata", err);
       } finally {
         setLoading(false);
       }
@@ -110,12 +107,16 @@ export const HiringPortal: React.FC = () => {
     initData();
 
     const handleSync = async () => {
-      const [currSettings, currDomains] = await Promise.all([
-        dataEngine.getSystemSettings(),
-        dataEngine.getHiringDomains(),
-      ]);
-      setSettings(currSettings);
-      setDomains(currDomains);
+      try {
+        const [currSettings, currDomains] = await Promise.all([
+          dataEngine.getSystemSettings(),
+          dataEngine.getHiringDomains(),
+        ]);
+        setSettings(currSettings);
+        setDomains(currDomains);
+      } catch (err) {
+        console.error("Error refreshing hiring data", err);
+      }
     };
 
     window.addEventListener("dsc_data_change", handleSync);
@@ -223,20 +224,20 @@ export const HiringPortal: React.FC = () => {
 
     setSubmitting(true);
     try {
-      const created = await dataEngine.submitApplication({
+      const created = await dataEngine.submitHiringApplication({
         fullName: fullName.trim(),
         registrationNumber: regNumber.trim().toUpperCase(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
-        branch: branch || BRANCH_OPTIONS[0] || "CSE",
-        year: year || YEAR_OPTIONS[0] || "1st Year",
+        branch,
+        year,
         primaryTeam,
-        secondaryTeam: secondaryTeam !== "None" ? secondaryTeam : undefined,
+        secondaryTeam: secondaryTeam === "None" ? undefined : secondaryTeam,
         githubUrl: githubUrl.trim() || undefined,
         linkedinUrl: linkedinUrl.trim() || undefined,
         portfolioUrl: portfolioUrl.trim() || undefined,
         resumeFileName: resumeFileName || undefined,
-        resumeFileUrl: resumeDataUrl || undefined,
+        resumeDataUrl: resumeDataUrl || undefined,
         whyJoin: whyJoin.trim(),
         domainAnswers,
       });
@@ -267,7 +268,7 @@ export const HiringPortal: React.FC = () => {
   if (loading) {
     return (
       <div className="flex min-h-[450px] items-center justify-center">
-        <div className="flex items-center gap-3 text-cyan-400 font-mono">
+        <div className="flex items-center gap-3 text-blue-600 font-mono">
           <RefreshCw className="size-5 animate-spin" />
           <span>Synchronizing Hiring Opportunities...</span>
         </div>
@@ -281,33 +282,33 @@ export const HiringPortal: React.FC = () => {
   if (submittedApp) {
     return (
       <div className="hiring-success-wrapper max-w-3xl mx-auto px-4 py-8 animate-fadeIn">
-        <div className="glass-card rounded-3xl p-6 md:p-10 border border-cyan-500/30 text-center relative overflow-hidden">
-          <div className="absolute -top-24 -right-24 size-48 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -left-24 size-48 rounded-full bg-purple-600/10 blur-3xl pointer-events-none" />
+        <div className="glass-card rounded-3xl p-6 md:p-10 border border-slate-200 text-center relative overflow-hidden bg-white/95 shadow-xl">
+          <div className="absolute -top-24 -right-24 size-48 rounded-full bg-blue-100/50 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 size-48 rounded-full bg-blue-50/60 blur-3xl pointer-events-none" />
 
-          <div className="inline-flex size-16 items-center justify-center rounded-2xl bg-sky-500/10 border border-sky-500/30 text-sky-400 mb-5">
+          <div className="inline-flex size-16 items-center justify-center rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 mb-5 shadow-sm">
             <CheckCircle2 className="size-8" />
           </div>
 
-          <h2 className="text-2xl md:text-3xl font-display font-bold text-white mb-2">
+          <h2 className="text-2xl md:text-3xl font-display font-bold text-slate-900 mb-2">
             Application Received!
           </h2>
-          <p className="text-sm text-slate-400 max-w-lg mx-auto mb-8">
+          <p className="text-sm text-slate-600 max-w-lg mx-auto mb-8">
             Thank you for applying to the Data Science Club Core Team. Your application has been logged
             and routed to the relevant domain leads for review.
           </p>
 
           {/* Reference Card */}
-          <div className="max-w-md mx-auto rounded-2xl p-6 border border-white/15 bg-gradient-to-br from-slate-900 to-slate-950 shadow-2xl text-left relative mb-8">
-            <span className="text-[10px] font-mono tracking-widest text-cyan-400 uppercase block mb-1">
+          <div className="max-w-md mx-auto rounded-2xl p-6 border border-slate-200 bg-slate-50/80 shadow-sm text-left relative mb-8">
+            <span className="text-[10px] font-mono tracking-widest text-[#0052cc] uppercase block mb-1 font-semibold">
               RECRUITMENT APPLICATION TOKEN
             </span>
-            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
-              <span className="font-mono font-bold text-white text-base">{submittedApp.id}</span>
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-3">
+              <span className="font-mono font-bold text-slate-900 text-base">{submittedApp.id}</span>
               <button
                 type="button"
                 onClick={handleCopyAppId}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/10 text-cyan-300 text-xs font-mono hover:bg-white/20 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-blue-700 text-xs font-mono hover:bg-slate-50 transition-colors cursor-pointer shadow-xs"
               >
                 {copiedId ? <Check className="size-3" /> : <Copy className="size-3" />}
                 <span>{copiedId ? "Copied" : "Copy Ref"}</span>
@@ -316,23 +317,23 @@ export const HiringPortal: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <span className="text-slate-400 block text-[10px]">CANDIDATE</span>
-                <span className="font-semibold text-white">{submittedApp.fullName}</span>
-                <span className="text-slate-400 block text-[10px]">{submittedApp.registrationNumber}</span>
+                <span className="text-slate-500 block text-[10px]">CANDIDATE</span>
+                <span className="font-semibold text-slate-900">{submittedApp.fullName}</span>
+                <span className="text-slate-500 block text-[10px]">{submittedApp.registrationNumber}</span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px]">PRIMARY DOMAIN</span>
-                <span className="font-semibold text-cyan-300">{submittedApp.primaryTeam}</span>
+                <span className="text-slate-500 block text-[10px]">PRIMARY DOMAIN</span>
+                <span className="font-semibold text-[#0052cc]">{submittedApp.primaryTeam}</span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px]">SECONDARY DOMAIN</span>
-                <span className="font-semibold text-slate-300">
+                <span className="text-slate-500 block text-[10px]">SECONDARY DOMAIN</span>
+                <span className="font-semibold text-slate-700">
                   {submittedApp.secondaryTeam || "None"}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px]">STATUS</span>
-                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                <span className="text-slate-500 block text-[10px]">STATUS</span>
+                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-blue-50 text-[#0052cc] border border-blue-200">
                   {submittedApp.status}
                 </span>
               </div>
@@ -347,14 +348,14 @@ export const HiringPortal: React.FC = () => {
               )}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/30 font-bold text-xs transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 font-bold text-xs transition-all cursor-pointer shadow-sm"
             >
               <Share2 className="size-4" /> Share on WhatsApp
             </a>
 
             <button
               onClick={handleResetForAnother}
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white/10 text-white hover:bg-white/15 border border-white/10 font-bold text-xs transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-200 font-bold text-xs transition-all cursor-pointer shadow-sm"
             >
               Submit Another Application
             </button>
@@ -371,41 +372,41 @@ export const HiringPortal: React.FC = () => {
     <div className="hiring-portal-wrapper max-w-5xl mx-auto px-4 py-8">
       {/* Hero Header */}
       <div className="text-center mb-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-mono mb-3">
-          <span className="size-2 rounded-full bg-sky-400 animate-pulse" />
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-[#0052cc] text-xs font-mono mb-3 shadow-xs">
+          <span className="size-2 rounded-full bg-blue-600 animate-pulse" />
           <span>DATA SCIENCE CLUB CORE TEAM RECRUITMENT 2026</span>
         </div>
-        <h1 className="text-3xl md:text-5xl font-display font-extrabold text-white tracking-tight mb-4">
-          Architect The <span className="gradient-text">Future of Data</span>
+        <h1 className="text-3xl md:text-5xl font-display font-extrabold text-slate-900 tracking-tight mb-4">
+          Architect The <span className="text-[#0052cc]">Future of Data</span>
         </h1>
-        <p className="text-sm md:text-base text-slate-400 max-w-2xl mx-auto">
-          We build machine learning pipelines, engineer distributed systems, design cyberpunk visual
+        <p className="text-sm md:text-base text-slate-600 max-w-2xl mx-auto">
+          We build machine learning pipelines, engineer distributed systems, design distinctive visual
           identities, and organize the university's flagship hackathons.
         </p>
 
         {/* Live Status & Deadline Countdown */}
-        <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-4 p-3.5 rounded-2xl bg-slate-900/80 border border-white/10 shadow-xl">
+        <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-4 p-3.5 rounded-2xl bg-white/95 border border-slate-200 shadow-sm backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <span
               className={`size-2.5 rounded-full ${
-                isHiringOpen ? "bg-emerald-400 animate-pulse" : "bg-rose-500"
+                isHiringOpen ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
               }`}
             />
             <span
               className={`text-xs font-mono font-bold uppercase tracking-wider ${
-                isHiringOpen ? "text-emerald-400" : "text-rose-400"
+                isHiringOpen ? "text-emerald-700" : "text-rose-600"
               }`}
             >
               {isHiringOpen ? "Applications Live" : "Recruitments Closed"}
             </span>
           </div>
 
-          <div className="h-4 w-px bg-white/10 hidden sm:block" />
+          <div className="h-4 w-px bg-slate-200 hidden sm:block" />
 
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
-            <Clock className="size-3.5 text-cyan-400" />
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-600">
+            <Clock className="size-3.5 text-[#0052cc]" />
             <span>Deadline Countdown:</span>
-            <span className="font-bold text-white bg-slate-950 px-2.5 py-1 rounded-lg border border-white/10">
+            <span className="font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
               {timeLeft.days}d : {timeLeft.hours}h : {timeLeft.minutes}m : {timeLeft.seconds}s
             </span>
           </div>
@@ -414,10 +415,10 @@ export const HiringPortal: React.FC = () => {
 
       {/* Closed Recruitment Notice */}
       {!isHiringOpen && (
-        <div className="mb-10 p-8 rounded-3xl bg-rose-500/10 border border-rose-500/30 text-center">
-          <AlertCircle className="size-12 text-rose-400 mx-auto mb-3" />
-          <h3 className="text-xl font-bold text-rose-300 mb-2">Applications Are Currently Closed</h3>
-          <p className="text-xs text-slate-400 max-w-lg mx-auto">
+        <div className="mb-10 p-8 rounded-3xl bg-rose-50 border border-rose-200 text-center">
+          <AlertCircle className="size-12 text-rose-500 mx-auto mb-3" />
+          <h3 className="text-xl font-bold text-rose-800 mb-2">Applications Are Currently Closed</h3>
+          <p className="text-xs text-slate-600 max-w-lg mx-auto">
             The deadline for this recruitment cycle has passed or recruitments have been paused by the
             executive board. Follow our social channels for announcements on future opportunities!
           </p>
@@ -427,9 +428,9 @@ export const HiringPortal: React.FC = () => {
       {/* Domain Explorer Tabs */}
       <div className="mb-12">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-display font-bold text-white flex items-center gap-2">
+          <h2 className="text-lg font-display font-bold text-slate-900 flex items-center gap-2">
             <span>Explore Open Domains</span>
-            <span className="text-xs font-mono font-normal text-slate-400">
+            <span className="text-xs font-mono font-normal text-slate-500">
               ({domains.length} Specialized Teams)
             </span>
           </h2>
@@ -446,15 +447,15 @@ export const HiringPortal: React.FC = () => {
                 onClick={() => setActiveTabDomain(dom.domainName)}
                 className={`p-3.5 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
                   isSelected
-                    ? "bg-cyan-500/15 border-cyan-500/60 shadow-lg shadow-cyan-500/10"
-                    : "bg-slate-900/60 border-white/10 hover:border-white/20"
+                    ? "bg-blue-50 border-blue-500 shadow-sm"
+                    : "bg-white/95 border-slate-200 hover:border-slate-300 hover:bg-slate-50/70"
                 }`}
               >
                 <div className="mb-3">{DOMAIN_ICONS[dom.domainName] || <Code2 className="size-5" />}</div>
-                <span className="font-bold text-xs text-white block leading-tight">
+                <span className="font-bold text-xs text-slate-900 block leading-tight">
                   {dom.domainName}
                 </span>
-                <span className="text-[10px] font-mono text-cyan-400 mt-1 flex items-center gap-1">
+                <span className="text-[10px] font-mono text-[#0052cc] mt-1 flex items-center gap-1 font-semibold">
                   View Scope <ChevronRight className="size-3" />
                 </span>
               </button>
@@ -464,15 +465,15 @@ export const HiringPortal: React.FC = () => {
 
         {/* Active Domain Spotlight Card */}
         {currentTabDomain && (
-          <div className="glass-card rounded-3xl p-6 md:p-8 border border-white/10 relative overflow-hidden">
+          <div className="glass-card rounded-3xl p-6 md:p-8 border border-slate-200 bg-white/95 shadow-sm relative overflow-hidden">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                <div className="p-3 rounded-2xl bg-blue-50 border border-blue-200">
                   {DOMAIN_ICONS[currentTabDomain.domainName]}
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white">{currentTabDomain.domainName}</h3>
-                  <span className="text-xs text-slate-400">{currentTabDomain.shortDescription}</span>
+                  <h3 className="text-xl font-bold text-slate-900">{currentTabDomain.domainName}</h3>
+                  <span className="text-xs text-slate-500">{currentTabDomain.shortDescription}</span>
                 </div>
               </div>
 
@@ -485,7 +486,7 @@ export const HiringPortal: React.FC = () => {
                     // scroll to form
                     document.getElementById("apply-form")?.scrollIntoView({ behavior: "smooth" });
                   }}
-                  className="px-4 py-2 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs hover:bg-cyan-400 transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-sm"
                 >
                   <span>Select as 1st Choice</span>
                   <ArrowRight className="size-3.5" />
@@ -493,19 +494,19 @@ export const HiringPortal: React.FC = () => {
               )}
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed mb-6 max-w-3xl">
+            <p className="text-xs text-slate-600 leading-relaxed mb-6 max-w-3xl">
               {currentTabDomain.fullDescription}
             </p>
 
             <div>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 block mb-2">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500 block mb-2 font-semibold">
                 KEY TECHNOLOGIES & TOOLS IN THIS TEAM:
               </span>
               <div className="flex flex-wrap gap-2">
                 {currentTabDomain.skills.map((skill) => (
                   <span
                     key={skill}
-                    className="px-3 py-1 rounded-full text-xs font-mono bg-white/5 border border-white/10 text-slate-300"
+                    className="px-3 py-1 rounded-full text-xs font-mono bg-slate-50 border border-slate-200 text-slate-700"
                   >
                     {skill}
                   </span>
@@ -518,23 +519,23 @@ export const HiringPortal: React.FC = () => {
 
       {/* APPLICATION FORM (Only when open) */}
       {isHiringOpen && (
-        <div id="apply-form" className="glass-card rounded-3xl p-6 md:p-10 border border-white/10">
-          <div className="border-b border-white/10 pb-6 mb-8">
-            <span className="text-xs font-mono uppercase tracking-widest text-cyan-400 block mb-1">
+        <div id="apply-form" className="glass-card rounded-3xl p-6 md:p-10 border border-slate-200 bg-white/95 shadow-md">
+          <div className="border-b border-slate-200 pb-6 mb-8">
+            <span className="text-xs font-mono uppercase tracking-widest text-[#0052cc] block mb-1 font-semibold">
               OFFICIAL APPLICATION INTAKE
             </span>
-            <h2 className="text-2xl font-display font-bold text-white">
+            <h2 className="text-2xl font-display font-bold text-slate-900">
               Submit Your Core Team Application
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-600 mt-1">
               Ensure all university credentials and portfolio links are accurate. You may select a 1st
               and optional 2nd choice team.
             </p>
           </div>
 
           {errorMessage && (
-            <div className="mb-6 flex items-center gap-3 p-4 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs animate-shake">
-              <AlertCircle className="size-5 shrink-0 text-rose-400" />
+            <div className="mb-6 flex items-center gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs animate-shake">
+              <AlertCircle className="size-5 shrink-0 text-rose-500" />
               <span>{errorMessage}</span>
             </div>
           )}
@@ -542,64 +543,64 @@ export const HiringPortal: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Step 1: Identity */}
             <div>
-              <span className="text-xs font-mono uppercase tracking-widest text-slate-400 block mb-3">
+              <span className="text-xs font-mono uppercase tracking-widest text-slate-500 block mb-3 font-semibold">
                 1. APPLICANT IDENTITY
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1.5">Full Name *</label>
+                  <label className="text-xs text-slate-700 block mb-1.5 font-medium">Full Name *</label>
                   <input
                     type="text"
                     placeholder="Enter your full name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                    className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1.5">Registration / Roll No. *</label>
+                  <label className="text-xs text-slate-700 block mb-1.5 font-medium">Registration / Roll No. *</label>
                   <input
                     type="text"
                     placeholder="e.g. 24BAI10042"
                     value={regNumber}
                     onChange={(e) => setRegNumber(e.target.value.toUpperCase())}
-                    className="w-full bg-slate-900 border border-white/20 text-white font-mono rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                    className="w-full bg-white border border-slate-200 text-slate-900 font-mono rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1.5">VIT Bhopal Email ID *</label>
+                  <label className="text-xs text-slate-700 block mb-1.5 font-medium">VIT Bhopal Email ID *</label>
                   <input
                     type="email"
                     placeholder="student.2024@vitbhopal.ac.in"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                    className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1.5">WhatsApp / Phone Number *</label>
+                  <label className="text-xs text-slate-700 block mb-1.5 font-medium">WhatsApp / Phone Number *</label>
                   <input
                     type="tel"
                     placeholder="10-digit mobile number"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                    className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1.5">Branch / Degree *</label>
+                  <label className="text-xs text-slate-700 block mb-1.5 font-medium">Branch / Degree *</label>
                   <select
                     value={branch}
                     onChange={(e) => setBranch(e.target.value)}
-                    className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                    className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                   >
                     {BRANCH_OPTIONS.map((b) => (
                       <option key={b} value={b}>
@@ -610,11 +611,11 @@ export const HiringPortal: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1.5">Academic Year *</label>
+                  <label className="text-xs text-slate-700 block mb-1.5 font-medium">Academic Year *</label>
                   <select
                     value={year}
                     onChange={(e) => setYear(e.target.value)}
-                    className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                    className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                   >
                     {YEAR_OPTIONS.map((y) => (
                       <option key={y} value={y}>
@@ -628,18 +629,18 @@ export const HiringPortal: React.FC = () => {
 
             {/* Step 2: Preferred Domains */}
             <div>
-              <span className="text-xs font-mono uppercase tracking-widest text-slate-400 block mb-3">
+              <span className="text-xs font-mono uppercase tracking-widest text-slate-500 block mb-3 font-semibold">
                 2. TEAM PREFERENCES
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1.5">
+                  <label className="text-xs text-slate-700 block mb-1.5 font-medium">
                     1st Choice Team (Primary Role) *
                   </label>
                   <select
                     value={primaryTeam}
                     onChange={(e) => setPrimaryTeam(e.target.value as LeadDomain)}
-                    className="w-full bg-slate-900 border border-cyan-500/40 text-cyan-300 font-semibold rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                    className="w-full bg-white border border-blue-300 text-blue-700 font-semibold rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                     required
                   >
                     {domains.map((dom) => (
@@ -648,19 +649,19 @@ export const HiringPortal: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                  <span className="text-[10px] text-slate-400 block mt-1">
+                  <span className="text-[10px] text-slate-500 block mt-1">
                     Your dynamic questions below will be tailored to this selection.
                   </span>
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1.5">
+                  <label className="text-xs text-slate-700 block mb-1.5 font-medium">
                     2nd Choice Team (Secondary / Fallback)
                   </label>
                   <select
                     value={secondaryTeam}
                     onChange={(e) => setSecondaryTeam(e.target.value as LeadDomain | "None")}
-                    className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                    className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                   >
                     <option value="None">None (1st Choice Only)</option>
                     {domains
@@ -671,7 +672,7 @@ export const HiringPortal: React.FC = () => {
                         </option>
                       ))}
                   </select>
-                  <span className="text-[10px] text-slate-400 block mt-1">
+                  <span className="text-[10px] text-slate-500 block mt-1">
                     If positions are full in your 1st choice, you will be considered here.
                   </span>
                 </div>
@@ -680,16 +681,16 @@ export const HiringPortal: React.FC = () => {
 
             {/* Step 3: Dynamic Domain-Specific Questions */}
             {primaryDomainConfig && primaryDomainConfig.questions.length > 0 && (
-              <div className="p-5 rounded-2xl bg-cyan-950/20 border border-cyan-500/30">
-                <span className="text-xs font-mono uppercase tracking-widest text-cyan-300 block mb-3 flex items-center gap-1.5">
+              <div className="p-5 rounded-2xl bg-blue-50/60 border border-blue-200 shadow-xs">
+                <span className="text-xs font-mono uppercase tracking-widest text-[#0052cc] block mb-3 flex items-center gap-1.5 font-bold">
                   <HelpCircle className="size-4" /> 3. DOMAIN SPECIFIC QUESTIONS ({primaryTeam})
                 </span>
 
                 <div className="space-y-4">
                   {primaryDomainConfig.questions.map((q) => (
                     <div key={q.id}>
-                      <label className="text-xs text-slate-200 block mb-1.5 font-medium">
-                        {q.label} {q.required && <span className="text-cyan-400">*</span>}
+                      <label className="text-xs text-slate-800 block mb-1.5 font-medium">
+                        {q.label} {q.required && <span className="text-blue-600">*</span>}
                       </label>
                       {q.type === "textarea" ? (
                         <textarea
@@ -697,7 +698,7 @@ export const HiringPortal: React.FC = () => {
                           placeholder={q.placeholder}
                           value={domainAnswers[q.id] || ""}
                           onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                          className="w-full bg-slate-900 border border-white/20 text-white rounded-xl p-3 text-xs focus:border-cyan-400 focus:outline-none leading-relaxed"
+                          className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl p-3 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none leading-relaxed shadow-xs transition-all"
                           required={q.required}
                         />
                       ) : (
@@ -706,7 +707,7 @@ export const HiringPortal: React.FC = () => {
                           placeholder={q.placeholder}
                           value={domainAnswers[q.id] || ""}
                           onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                          className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                          className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                           required={q.required}
                         />
                       )}
@@ -718,13 +719,13 @@ export const HiringPortal: React.FC = () => {
 
             {/* Step 4: Statement of Purpose & Links */}
             <div>
-              <span className="text-xs font-mono uppercase tracking-widest text-slate-400 block mb-3">
+              <span className="text-xs font-mono uppercase tracking-widest text-slate-500 block mb-3 font-semibold">
                 4. STATEMENT OF PURPOSE & WORK SAMPLES
               </span>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1.5">
+                  <label className="text-xs text-slate-700 block mb-1.5 font-medium">
                     Why do you want to join Data Science Club VIT Bhopal? *
                   </label>
                   <textarea
@@ -732,34 +733,34 @@ export const HiringPortal: React.FC = () => {
                     placeholder="Tell us what excites you about the club, any prior contributions, and what you wish to learn or build..."
                     value={whyJoin}
                     onChange={(e) => setWhyJoin(e.target.value)}
-                    className="w-full bg-slate-900 border border-white/20 text-white rounded-xl p-3.5 text-xs focus:border-cyan-400 focus:outline-none leading-relaxed"
+                    className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl p-3.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none leading-relaxed shadow-xs transition-all"
                     required
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-xs text-slate-300 block mb-1.5">GitHub URL (Optional)</label>
+                    <label className="text-xs text-slate-700 block mb-1.5 font-medium">GitHub URL (Optional)</label>
                     <input
                       type="url"
                       placeholder="https://github.com/..."
                       value={githubUrl}
                       onChange={(e) => setGithubUrl(e.target.value)}
-                      className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                      className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-slate-300 block mb-1.5">LinkedIn URL (Optional)</label>
+                    <label className="text-xs text-slate-700 block mb-1.5 font-medium">LinkedIn URL (Optional)</label>
                     <input
                       type="url"
                       placeholder="https://linkedin.com/in/..."
                       value={linkedinUrl}
                       onChange={(e) => setLinkedinUrl(e.target.value)}
-                      className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                      className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-slate-300 block mb-1.5">
+                    <label className="text-xs text-slate-700 block mb-1.5 font-medium">
                       Portfolio / Behance / Link (Optional)
                     </label>
                     <input
@@ -767,28 +768,28 @@ export const HiringPortal: React.FC = () => {
                       placeholder="https://portfolio.me"
                       value={portfolioUrl}
                       onChange={(e) => setPortfolioUrl(e.target.value)}
-                      className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                      className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                     />
                   </div>
                 </div>
 
                 {/* Resume Upload Drop-zone */}
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1.5">
+                  <label className="text-xs text-slate-700 block mb-1.5 font-medium">
                     Attach Resume / Portfolio PDF (Optional, max 5MB)
                   </label>
-                  <label className="flex flex-col items-center justify-center p-5 rounded-2xl border-2 border-dashed border-white/20 hover:border-cyan-400 bg-white/5 transition-colors cursor-pointer text-center">
-                    <Upload className="size-6 text-cyan-400 mb-2" />
+                  <label className="flex flex-col items-center justify-center p-5 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50/60 hover:bg-blue-50/30 transition-colors cursor-pointer text-center">
+                    <Upload className="size-6 text-[#0052cc] mb-2" />
                     {resumeFileName ? (
-                      <span className="text-xs text-cyan-300 font-mono font-bold">
+                      <span className="text-xs text-blue-700 font-mono font-bold">
                         Attached: {resumeFileName}
                       </span>
                     ) : (
                       <>
-                        <span className="text-xs text-white font-medium">
+                        <span className="text-xs text-slate-900 font-medium">
                           Click to upload or drag & drop PDF resume
                         </span>
-                        <span className="text-[10px] text-slate-400 mt-1">PDF format only</span>
+                        <span className="text-[10px] text-slate-500 mt-1">PDF format only</span>
                       </>
                     )}
                     <input
@@ -803,15 +804,15 @@ export const HiringPortal: React.FC = () => {
             </div>
 
             {/* Submit Toolbar */}
-            <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <span className="text-xs text-slate-400">
+            <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <span className="text-xs text-slate-500">
                 Submissions are reviewed directly by the DSC Executive Board and Domain Leads.
               </span>
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold text-xs hover:brightness-110 transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer"
               >
                 {submitting ? (
                   <>
@@ -832,3 +833,5 @@ export const HiringPortal: React.FC = () => {
     </div>
   );
 };
+
+export default HiringPortal;

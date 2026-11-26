@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Outlet, Link, createRootRouteWithContext, useRouter } from "@tanstack/react-router";
+import { Outlet, createRootRouteWithContext, useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 import Lenis from "lenis";
 
@@ -108,7 +108,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <TopAnnouncementBanner />
-      <main className="relative min-h-screen">
+      <main className="relative min-h-screen bg-white">
         <Outlet />
       </main>
     </QueryClientProvider>

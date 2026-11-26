@@ -21,7 +21,7 @@ export const Route = createFileRoute("/members")({
 
 function Members() {
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-sky-400 selection:text-black">
+    <div className="min-h-screen bg-transparent text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-900">
       <Navbar />
       <main className="relative pt-32 sm:pt-40 pb-20 px-4 sm:px-8 max-w-7xl mx-auto">
         <TeamSection />

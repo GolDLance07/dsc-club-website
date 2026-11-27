@@ -35,6 +35,51 @@ export interface UserRoleRecord {
 // ==========================================
 export type EventTag = "HACKATHON" | "BOOTCAMP" | "WORKSHOP" | "TECH TALK" | "MEETUP";
 
+export type EventStatus = "draft" | "published" | "archived";
+
+export interface EventPosterItem {
+  id: string; // Unique identifier for the poster slot
+  url: string; // Preview/download URL
+  storagePath: string; // Path in Firebase Storage: events/{eventId}/posters/{posterId}.ext
+  caption?: string | undefined; // Optional human-readable caption
+  isPrimary: boolean; // Exactly one poster must have isPrimary === true
+  displayOrder: number; // Order index: 1 to 5
+  width?: number | undefined;
+  height?: number | undefined;
+  uploadedAt?: string | undefined;
+}
+
+export interface CentralizedClubEvent {
+  id: string; // Unique document ID (e.g. slug-based or uuid)
+  slug: string; // URL-safe unique slug
+  title: string; // Event title (5 - 120 chars)
+  tagline?: string | undefined; // Optional short tagline
+  category: EventTag | string; // Classification category
+  status: EventStatus; // Lifecycle state: 'draft' | 'published' | 'archived'
+  domainScope: LeadDomain; // Domain responsible for the event
+  startDate: string; // ISO 8601 start timestamp
+  endDate: string; // ISO 8601 end timestamp
+  timeDisplay: string; // Human readable timing e.g. "10:00 AM - 4:00 PM IST"
+  venue: string; // Venue location name / auditorium / online
+  description: string; // Overview summary (20+ chars)
+  longBio: string; // Detailed briefing for details modal (50+ chars)
+  posters: EventPosterItem[]; // Array of 1 to 5 poster objects
+  maxCapacity: number; // Attendee capacity ceiling
+  currentRegistrations: number; // System-managed counter
+  registrationDeadline: string; // ISO 8601 deadline (deadline <= startDate)
+  isRegistrationOpen?: boolean | undefined;
+  externalRegistrationUrl?: string | undefined;
+  createdBy: {
+    uid: string;
+    email: string;
+    name: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string | undefined;
+  archivedAt?: string | undefined;
+}
+
 export interface ClubEvent {
   $id?: string;
   id: string;

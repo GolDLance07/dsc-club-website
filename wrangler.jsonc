@@ -1,0 +1,36 @@
+/**
+ * DSC VIT Bhopal — Cloudflare Worker Configuration
+ *
+ * Deploys the trusted event lifecycle and R2 poster storage API.
+ * Free tier compatible (Zero Google Cloud / Firebase Blaze costs).
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dsc-event-lifecycle-worker",
+  "main": "worker/index.ts",
+  "compatibility_date": "2024-11-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+
+  // Private Cloudflare R2 Bucket Binding for Event Posters
+  "r2_buckets": [
+    {
+      "binding": "POSTERS_BUCKET",
+      "bucket_name": "dsc-club-posters",
+      "preview_bucket_name": "dsc-club-posters-dev"
+    }
+  ],
+
+  // Public Worker Environment Variables (Non-sensitive)
+  "vars": {
+    "FIREBASE_PROJECT_ID": "dscvitb-ac7bf",
+    "ALLOWED_ORIGIN": "*"
+  }
+
+  // SENSITIVE SECRETS:
+  // NEVER put secrets in this file or commit them to Git.
+  // Set them using Wrangler CLI before deployment:
+  //   npx wrangler secret put FIREBASE_CLIENT_EMAIL
+  //   npx wrangler secret put FIREBASE_PRIVATE_KEY
+}

@@ -6,3 +6,5 @@ export * from "./config";
 export * from "./auth";
 export * from "./firestore";
 export * from "./recruitment";
+export * from "./events";
+export * from "@/lib/storage/r2-adapter";

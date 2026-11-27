@@ -17,7 +17,9 @@
     "format": "prettier --write .",
     "setup:db": "node scripts/init-appwrite-db.js",
     "bootstrap:admin": "node scripts/bootstrap-super-admin.mjs",
-    "migrate:firestore": "node scripts/migrate-to-firestore.mjs"
+    "migrate:firestore": "node scripts/migrate-to-firestore.mjs",
+    "event:lifecycle": "node scripts/event-lifecycle.mjs",
+    "test:security": "node --test scripts/test-lifecycle-security.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"

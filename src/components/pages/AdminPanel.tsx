@@ -10,12 +10,14 @@ import { ActivityLogView } from "@/components/admin/ActivityLogView";
 import { DatabaseBackupView } from "@/components/admin/DatabaseBackupView";
 import { FinanceSectionView } from "@/components/finance/FinanceSectionView";
 import { FacultyOversightView } from "@/components/faculty/FacultyOversightView";
+import { EventsAdminView } from "@/components/events/EventsAdminView";
 import {
   ShieldCheck,
   Crown,
   GraduationCap,
   Users,
   LayoutDashboard,
+  Calendar,
   Ticket,
   Briefcase,
   History,
@@ -252,6 +254,20 @@ export const AdminPanel: React.FC = () => {
           <span>Dashboard</span>
         </button>
 
+        {/* Centralized Event Management (Super Admin, Faculty, Team Leads) */}
+        <button
+          type="button"
+          onClick={() => setActiveTab("events")}
+          className={`px-4 py-2 rounded-xl font-mono text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === "events"
+              ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20"
+              : "bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <Calendar className="size-3.5" />
+          <span>Event Management</span>
+        </button>
+
         {/* Faculty Oversight (Faculty Coordinator only) */}
         {isFaculty && (
           <button
@@ -370,6 +386,16 @@ export const AdminPanel: React.FC = () => {
             userRole={role}
             leadDomain={leadDomain}
             onNavigateTab={(t) => setActiveTab(t)}
+          />
+        )}
+
+        {activeTab === "events" && (
+          <EventsAdminView
+            userRole={role}
+            leadDomain={leadDomain}
+            actorEmail={currentUserEmail}
+            actorUid={user?.uid || "admin-uid"}
+            actorName={user?.displayName || title}
           />
         )}
 

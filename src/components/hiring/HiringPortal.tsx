@@ -237,7 +237,7 @@ export const HiringPortal: React.FC = () => {
         linkedinUrl: linkedinUrl.trim() || undefined,
         portfolioUrl: portfolioUrl.trim() || undefined,
         resumeFileName: resumeFileName || undefined,
-        resumeDataUrl: resumeDataUrl || undefined,
+        resumeFileUrl: resumeDataUrl || undefined,
         whyJoin: whyJoin.trim(),
         domainAnswers,
       });

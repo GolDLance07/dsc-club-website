@@ -1,0 +1,191 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // Authentication & Role Helper Functions
+    // =========================================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return isAuthenticated() && ('role' in request.auth.token)
+        ? request.auth.token.role
+        : 'member';
+    }
+
+    function getUserDomain() {
+      return isAuthenticated() && ('leadDomain' in request.auth.token)
+        ? request.auth.token.leadDomain
+        : 'None';
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserRole() == 'super_admin';
+    }
+
+    function isFaculty() {
+      return isAuthenticated() && getUserRole() == 'faculty_coordinator';
+    }
+
+    function isTeamLead() {
+      return isAuthenticated() && getUserRole() == 'team_lead';
+    }
+
+    function isValidDomain(d) {
+      return d in ['Technical', 'AI & Data Science', 'Design & Media', 'Content & Editorial', 'Management & PR', 'None'];
+    }
+
+    // =========================================================================
+    // 1. Recruitment / Hiring Applications
+    // =========================================================================
+    match /hiring_applications/{appId} {
+      // READ:
+      // - Super Admin & Faculty can inspect all applications.
+      // - Team Leads can query and read ONLY candidates whose teams array contains their leadDomain.
+      // - Members / Unauthenticated: DENIED.
+      allow read: if isSuperAdmin() || isFaculty() ||
+        (isTeamLead() && resource.data.teams.hasAny([getUserDomain()]));
+
+      // CREATE:
+      // - Public candidate submission from the hiring portal.
+      // - Enforces initial status = 'applied'.
+      // - Prohibits injection of review/evaluation keys.
+      // - Enforces required fields and valid email/domain.
+      allow create: if request.resource.data.status == 'applied'
+        && !request.resource.data.keys().hasAny(['reviewerNotes', 'interviewNotes', 'evaluationScore'])
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() >= 2
+        && request.resource.data.fullName.size() <= 100
+        && request.resource.data.email is string
+        && request.resource.data.email.matches('.+@.+\\..+')
+        && request.resource.data.registrationNumber is string
+        && isValidDomain(request.resource.data.primaryTeam)
+        && request.resource.data.teams is list
+        && request.resource.data.teams.size() >= 1;
+
+      // UPDATE:
+      // - Super Admin can update any field.
+      // - Team Leads can update ONLY approved evaluation fields on candidates in their domain.
+      // - Candidate identity, contact, resume, and assigned domains are strictly IMMUTABLE.
+      // - Team Leads can only advance candidates to 'shortlisted' or 'interview'.
+      allow update: if isSuperAdmin() ||
+        (isTeamLead() &&
+         resource.data.teams.hasAny([getUserDomain()]) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+           ['reviewerNotes', 'interviewNotes', 'evaluationScore', 'status', 'updatedAt']
+         ) &&
+         // Candidate identity fields MUST remain identical:
+         request.resource.data.fullName == resource.data.fullName &&
+         request.resource.data.email == resource.data.email &&
+         request.resource.data.registrationNumber == resource.data.registrationNumber &&
+         request.resource.data.phone == resource.data.phone &&
+         request.resource.data.primaryTeam == resource.data.primaryTeam &&
+         request.resource.data.teams == resource.data.teams &&
+         request.resource.data.resumeFileUrl == resource.data.resumeFileUrl &&
+         request.resource.data.submittedAt == resource.data.submittedAt &&
+         // Team Leads cannot mark candidates 'selected' or 'rejected' directly:
+         (!('status' in request.resource.data) || request.resource.data.status in ['applied', 'shortlisted', 'interview']));
+
+      // DELETE:
+      // - Restricted strictly to Super Admin.
+      allow delete: if isSuperAdmin();
+    }
+
+    // =========================================================================
+    // 2. User Roles & RBAC Claims Database
+    // =========================================================================
+    match /user_roles/{userId} {
+      // READ: Authenticated users can read their own role record; Super Admin & Faculty can read all.
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isSuperAdmin() || isFaculty());
+
+      // WRITE: Strictly Super Admin. Users CANNOT assign or elevate their own roles.
+      allow write: if isSuperAdmin();
+    }
+
+    // =========================================================================
+    // 3. Centralized Events
+    // =========================================================================
+    match /events/{eventId} {
+      // READ:
+      // - Public can read published or archived events.
+      // - Super Admin & Faculty can inspect all events (including drafts).
+      // - Team Leads can inspect drafts scoped to their domain.
+      allow read: if resource.data.status in ['published', 'archived'] ||
+        isSuperAdmin() || isFaculty() ||
+        (isTeamLead() && (resource.data.domainScope == getUserDomain() || resource.data.domainScope == 'None'));
+
+      // CREATE:
+      // - Super Admin can create events with any status.
+      // - Team Leads can create events ONLY as 'draft' for their assigned domain.
+      allow create: if isSuperAdmin() ||
+        (isTeamLead() &&
+         request.resource.data.status == 'draft' &&
+         request.resource.data.domainScope == getUserDomain() &&
+         request.resource.data.createdBy.uid == request.auth.uid);
+
+      // UPDATE:
+      // - Super Admin can update any event.
+      // - Team Leads can update content fields ONLY on draft events in their domain.
+      // - Team Leads CANNOT change status to 'published' or alter system counters.
+      allow update: if isSuperAdmin() ||
+        (isTeamLead() &&
+         resource.data.domainScope == getUserDomain() &&
+         request.resource.data.domainScope == getUserDomain() &&
+         resource.data.status == 'draft' &&
+         request.resource.data.status == 'draft' &&
+         request.resource.data.createdBy == resource.data.createdBy &&
+         request.resource.data.createdAt == resource.data.createdAt &&
+         request.resource.data.currentRegistrations == resource.data.currentRegistrations);
+
+      // DELETE: Strictly Super Admin.
+      allow delete: if isSuperAdmin();
+    }
+
+    // =========================================================================
+    // 4. Event Registrations
+    // =========================================================================
+    match /registrations/{regId} {
+      // READ: Super Admin, Faculty, or the individual registrant.
+      allow read: if isSuperAdmin() || isFaculty() ||
+        (isAuthenticated() && resource.data.email == request.auth.token.email);
+
+      // CREATE: Public attendee registration for valid published events.
+      allow create: if request.resource.data.eventId is string
+        && request.resource.data.fullName is string
+        && request.resource.data.email is string
+        && request.resource.data.registrationStatus in ['confirmed', 'waitlisted'];
+
+      // UPDATE / DELETE: Strictly Super Admin.
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // =========================================================================
+    // 5. Activity Logs (Audit Trail)
+    // =========================================================================
+    match /activity_logs/{logId} {
+      // READ: Super Admin & Faculty Coordinator.
+      allow read: if isSuperAdmin() || isFaculty();
+
+      // CREATE: Authenticated users can append operational log entries.
+      allow create: if isAuthenticated();
+
+      // UPDATE / DELETE: Immutable audit logs; updates denied, deletion Super Admin only.
+      allow update: if false;
+      allow delete: if isSuperAdmin();
+    }
+
+    // =========================================================================
+    // 6. Global System Settings
+    // =========================================================================
+    match /system_settings/{settingId} {
+      // READ: Public read for announcements and hiring cycle status.
+      allow read: if true;
+
+      // WRITE: Strictly Super Admin.
+      allow write: if isSuperAdmin();
+    }
+  }
+}

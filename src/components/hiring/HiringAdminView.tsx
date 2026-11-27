@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { dataEngine } from "@/lib/data-engine";
-import type { ApplicationRecord, ApplicationStatus, LeadDomain, SystemSettings } from "@/types/models";
+import { isFirebaseConfigured, getRecruitmentApplications, updateCandidateEvaluation } from "@/lib/firebase";
+import type { ApplicationRecord, ApplicationStatus, LeadDomain, RoleType, SystemSettings } from "@/types/models";
 import * as XLSX from "xlsx";
 import {
   Search,
@@ -76,11 +77,15 @@ export const HiringAdminView: React.FC<HiringAdminViewProps> = ({
   const fetchData = async () => {
     try {
       const [apps, sett] = await Promise.all([
-        dataEngine.getApplications(userRole === "team_lead" ? leadDomain : undefined),
+        isFirebaseConfigured()
+          ? getRecruitmentApplications(userRole as RoleType, leadDomain)
+          : dataEngine.getApplications(userRole === "team_lead" ? leadDomain : undefined),
         dataEngine.getSystemSettings(),
       ]);
       setApplications(apps);
       setSettings(sett);
+    } catch (err: any) {
+      console.error("[DSC HiringView] Failed to fetch recruitment applications:", err);
     } finally {
       setLoading(false);
     }
@@ -131,20 +136,44 @@ export const HiringAdminView: React.FC<HiringAdminViewProps> = ({
 
   // Handle single status update
   const handleStatusChange = async (id: string, newStatus: ApplicationStatus) => {
-    await dataEngine.updateApplicationStatus(id, newStatus, undefined, actorEmail);
-    if (inspectingApp && inspectingApp.id === id) {
-      setInspectingApp((prev) => (prev ? { ...prev, status: newStatus } : null));
+    try {
+      if (isFirebaseConfigured()) {
+        await updateCandidateEvaluation(id, { status: newStatus }, userRole as RoleType, leadDomain);
+      } else {
+        await dataEngine.updateApplicationStatus(id, newStatus, undefined, actorEmail);
+      }
+      if (inspectingApp && inspectingApp.id === id) {
+        setInspectingApp((prev) => (prev ? { ...prev, status: newStatus } : null));
+      }
+      await fetchData();
+    } catch (err: any) {
+      alert(err?.message || "Failed to update status.");
     }
-    await fetchData();
   };
 
   // Save reviewer notes
   const handleSaveReviewerNote = async (id: string) => {
-    await dataEngine.updateApplicationStatus(id, inspectingApp?.status || "applied", reviewNoteInput, actorEmail);
-    if (inspectingApp) {
-      setInspectingApp((prev) => (prev ? { ...prev, reviewerNotes: reviewNoteInput } : null));
+    try {
+      if (isFirebaseConfigured()) {
+        await updateCandidateEvaluation(
+          id,
+          {
+            reviewerNotes: reviewNoteInput,
+            ...(inspectingApp?.status ? { status: inspectingApp.status } : {}),
+          },
+          userRole as RoleType,
+          leadDomain
+        );
+      } else {
+        await dataEngine.updateApplicationStatus(id, inspectingApp?.status || "applied", reviewNoteInput, actorEmail);
+      }
+      if (inspectingApp) {
+        setInspectingApp((prev) => (prev ? { ...prev, reviewerNotes: reviewNoteInput } : null));
+      }
+      await fetchData();
+    } catch (err: any) {
+      alert(err?.message || "Failed to save evaluation notes.");
     }
-    await fetchData();
   };
 
   // Bulk Selection
@@ -165,11 +194,19 @@ export const HiringAdminView: React.FC<HiringAdminViewProps> = ({
   // Bulk Status Update
   const handleBulkStatusUpdate = async (status: ApplicationStatus) => {
     if (selectedIds.length === 0) return;
-    for (const id of selectedIds) {
-      await dataEngine.updateApplicationStatus(id, status, undefined, actorEmail);
+    try {
+      for (const id of selectedIds) {
+        if (isFirebaseConfigured()) {
+          await updateCandidateEvaluation(id, { status }, userRole as RoleType, leadDomain);
+        } else {
+          await dataEngine.updateApplicationStatus(id, status, undefined, actorEmail);
+        }
+      }
+      setSelectedIds([]);
+      await fetchData();
+    } catch (err: any) {
+      alert(err?.message || "Failed to update bulk statuses.");
     }
-    setSelectedIds([]);
-    await fetchData();
   };
 
   // Bulk Export to Excel (.xlsx)

@@ -494,6 +494,10 @@ export class DataEngine {
     return getLocal<ClubEvent[]>(STORAGE_KEYS.EVENTS, INITIAL_EVENTS);
   }
 
+  public async getClubEvents(): Promise<ClubEvent[]> {
+    return this.getEvents();
+  }
+
   public async getEventBySlug(slug: string): Promise<ClubEvent | null> {
     const events = await this.getEvents();
     return events.find((e) => e.slug === slug || e.id === slug) || null;
@@ -653,6 +657,10 @@ export class DataEngine {
     );
 
     return record;
+  }
+
+  public async submitHiringApplication(appData: Omit<ApplicationRecord, "id" | "status" | "submittedAt">): Promise<ApplicationRecord> {
+    return this.submitApplication(appData);
   }
 
   public async updateApplicationStatus(

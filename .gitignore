@@ -19,6 +19,8 @@ dist-ssr
 .env
 .env.*
 !.env.example
+serviceAccountKey.json
+*firebase-adminsdk*.json
 
 
 # Vercel / deployment artifacts

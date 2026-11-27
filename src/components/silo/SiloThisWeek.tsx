@@ -10,19 +10,22 @@ interface SiloThisWeekProps {
 
 export const SiloThisWeek: React.FC<SiloThisWeekProps> = ({ onSelectEvent }) => {
   return (
-    <section id="events" className="w-full py-16 sm:py-24 px-4 sm:px-8 max-w-7xl mx-auto">
-      {/* Section Header (Sleek SILO spacing and hierarchy) */}
+    <section
+      id="events"
+      className="w-full py-8 sm:py-12 px-4 sm:px-8 max-w-7xl mx-auto"
+    >
+      {/* Section Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
         <div>
           <div className="flex items-center gap-3">
-            <span className="size-8 rounded-xl border border-sky-400/40 bg-sky-950/40 flex items-center justify-center font-mono text-xs font-bold text-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.2)]">
+            <span className="size-8 rounded-xl border-2 border-blue-600 bg-blue-50 flex items-center justify-center font-mono text-xs font-bold text-blue-700 shadow-xs">
               03
             </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 font-sans">
               This week at DSC
             </h2>
           </div>
-          <p className="text-xs sm:text-sm font-mono text-slate-400 mt-2">
+          <p className="text-xs sm:text-sm font-mono text-slate-600 mt-2">
             Flagship bootcamps, 36-hour hackathons, and technical deep-dives with open reservations.
           </p>
         </div>
@@ -30,10 +33,10 @@ export const SiloThisWeek: React.FC<SiloThisWeekProps> = ({ onSelectEvent }) => 
         <div>
           <Link
             to="/events"
-            className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 px-6 py-2.5 text-xs font-mono font-medium tracking-wider text-slate-300 hover:text-white hover:border-sky-400 hover:bg-sky-400/10 transition-colors uppercase cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-300 hover:border-blue-600 bg-white hover:bg-blue-50 px-6 py-2.5 text-xs font-mono font-bold tracking-wider text-slate-800 hover:text-blue-700 transition-colors uppercase cursor-pointer shadow-xs"
           >
             <span>VIEW ALL SPRINTS</span>
-            <ArrowRight className="size-3 text-sky-400" />
+            <ArrowRight className="size-3 text-blue-600" />
           </Link>
         </div>
       </div>
@@ -44,81 +47,73 @@ export const SiloThisWeek: React.FC<SiloThisWeekProps> = ({ onSelectEvent }) => 
           <article
             key={evt.id}
             onClick={() => onSelectEvent(evt)}
-            className="group relative rounded-3xl border border-sky-400/20 bg-[#050814] p-5 sm:p-6 flex flex-col justify-between hover:border-sky-400/80 hover:shadow-[0_0_40px_rgba(56,189,248,0.25)] hover:-translate-y-1.5 transition-all duration-300 ease-out cursor-pointer"
+            className="group relative rounded-3xl border-2 border-slate-200 bg-white p-5 sm:p-6 flex flex-col justify-between hover:border-blue-600 hover:shadow-xl hover:shadow-blue-600/10 hover:-translate-y-1 transition-all duration-300 ease-out cursor-pointer"
           >
-            {/* Poster Art with Cyber Details */}
-            <div className="relative aspect-square w-full rounded-2xl overflow-hidden border border-sky-400/20 bg-slate-950">
+            {/* Poster Art with Crisp White & Blue Details */}
+            <div className="relative aspect-square w-full rounded-2xl overflow-hidden border border-slate-200 bg-slate-100">
               <img
                 src={evt.image}
                 alt={evt.title}
-                className="w-full h-full object-cover filter brightness-90 group-hover:scale-105 transition-transform duration-700"
+                className="w-full h-full object-cover filter contrast-105 group-hover:scale-105 transition-transform duration-700"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/60" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent" />
 
               {/* Poster Top Badges */}
               <div className="absolute top-4 inset-x-4 flex items-center justify-between text-[10px] font-mono tracking-wider">
-                <span className="text-sky-300 font-bold bg-black/70 px-2.5 py-1 rounded-md border border-sky-400/40 backdrop-blur-md">
-                  DSC LABS
+                <span className="text-blue-700 font-bold bg-white/95 px-2.5 py-1 rounded-md border border-blue-200 shadow-sm">
+                  DSC VITB
                 </span>
-                <span className="text-slate-300 uppercase bg-black/70 px-2.5 py-1 rounded-md border border-white/10 backdrop-blur-md">
+                <span className="text-slate-800 font-bold uppercase bg-white/95 px-2.5 py-1 rounded-md border border-slate-200 shadow-sm">
                   {evt.category}
                 </span>
               </div>
 
-              {/* Poster Bottom Text */}
-              <div className="absolute bottom-4 inset-x-4">
-                <div className="text-[10px] font-mono text-sky-400 uppercase tracking-widest">
-                  {evt.date.split(",")[0]} — 2026
-                </div>
-                <div className="text-base sm:text-lg font-black uppercase text-white tracking-tight leading-tight mt-1">
-                  {evt.title}
-                </div>
-                <div className="text-[10px] font-mono text-slate-400 mt-1 uppercase">
-                  WITH SUPPORT FROM DSC CORE MENTORS
-                </div>
-              </div>
-
-              {/* Floating Status Badge */}
+              {/* Status Badge */}
               {evt.badge && (
-                <div className="absolute bottom-3 right-3 rotate-[-4deg]">
-                  <span className="bg-sky-400 text-black text-[9px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-lg">
+                <div className="absolute bottom-4 right-4">
+                  <span className="bg-blue-600 text-white text-[10px] font-mono font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-md">
                     {evt.badge}
                   </span>
                 </div>
               )}
             </div>
 
-            {/* Card Information */}
-            <div className="mt-5 space-y-3">
-              <h3 className="text-lg font-bold text-white group-hover:text-sky-300 transition-colors">
-                {evt.speaker}
+            {/* Event Description & Info */}
+            <div className="pt-6 space-y-3">
+              <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors font-sans">
+                {evt.title}
               </h3>
-              <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+
+              <p className="text-xs text-slate-600 font-sans line-clamp-2 leading-relaxed">
                 {evt.description}
               </p>
 
-              <div className="grid grid-cols-2 gap-3 text-[11px] font-mono text-slate-400 border-t border-sky-400/15 pt-3.5">
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="size-3 text-sky-400 shrink-0" />
-                  <span className="text-slate-300 truncate">
-                    {evt.date.split(",")[1] || evt.date}
-                  </span>
+              <div className="space-y-1.5 pt-2 text-xs font-mono text-slate-600">
+                <div className="flex items-center gap-2">
+                  <Calendar className="size-3.5 text-blue-600" />
+                  <span>{evt.date}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Clock className="size-3 text-sky-400 shrink-0" />
-                  <span className="text-slate-300 truncate">{evt.time.split("-")[0]}</span>
+                <div className="flex items-center gap-2">
+                  <Clock className="size-3.5 text-blue-600" />
+                  <span>{evt.time}</span>
                 </div>
-                <div className="flex items-center gap-1.5 col-span-2">
-                  <MapPin className="size-3 text-sky-400 shrink-0" />
-                  <span className="text-slate-300 truncate">{evt.venue}</span>
+                <div className="flex items-center gap-2">
+                  <MapPin className="size-3.5 text-blue-600" />
+                  <span>{evt.venue}</span>
                 </div>
               </div>
+            </div>
 
-              <div className="pt-2">
-                <span className="inline-flex w-full items-center justify-center rounded-xl border border-sky-400/30 bg-sky-950/20 py-2.5 text-xs font-mono font-bold uppercase tracking-wider text-sky-300 group-hover:bg-sky-400 group-hover:text-black group-hover:border-sky-400 transition-all">
-                  VIEW SESSION DETAILS
-                </span>
-              </div>
+            {/* Bottom Card Action */}
+            <div className="pt-6 mt-6 border-t border-slate-200 flex items-center justify-between">
+              <span className="font-mono text-xs font-bold text-blue-700">
+                {evt.ticketPrice}
+              </span>
+
+              <span className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-blue-600 group-hover:translate-x-1 transition-transform">
+                <span>INSPECT SPEC</span>
+                <ArrowRight className="size-3.5" />
+              </span>
             </div>
           </article>
         ))}

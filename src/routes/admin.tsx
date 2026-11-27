@@ -18,9 +18,9 @@ export const Route = createFileRoute("/admin")({
 
 function AdminRoute() {
   return (
-    <div className="main-wrapper">
+    <div className="min-h-screen bg-[#0a192f] text-slate-100 font-sans selection:bg-blue-600 selection:text-white">
       <Navbar />
-      <main style={{ paddingTop: "60px" }}>
+      <main className="relative pt-24 pb-20 px-4 sm:px-8 max-w-7xl mx-auto">
         <AdminPanel />
       </main>
       <FooterSection />

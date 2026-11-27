@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   ArrowRight,
   RefreshCw,
-  QrCode,
   CreditCard,
   Building,
 } from "lucide-react";
@@ -101,9 +100,9 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
   const [copiedUpi, setCopiedUpi] = useState<boolean>(false);
 
   // Submission State
-  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState<RegistrationRecord | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Countdown State
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number }>({
@@ -113,54 +112,44 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
     seconds: 0,
   });
 
-  // Load events
+  // Fetch all published events
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const list = await dataEngine.getEvents();
-        setEvents(list);
-        if (!selectedEventId && list.length > 0) {
-          const match = initialEventId
-            ? list.find((e) => e.id === initialEventId || e.slug === initialEventId)
-            : list[0];
-          setSelectedEventId(match ? match.id : list[0]?.id || "");
+        const all = await dataEngine.getClubEvents();
+        const activeOnly = all.filter((e) => e.isRegistrationOpen);
+        setEvents(activeOnly);
+
+        if (!selectedEventId && activeOnly.length > 0) {
+          const firstEvent = activeOnly[0];
+          if (firstEvent) {
+            setSelectedEventId(firstEvent.id);
+          }
         }
+      } catch (err) {
+        console.error("Failed to fetch events for registration", err);
       } finally {
         setLoading(false);
       }
     };
     fetchEvents();
-  }, [initialEventId]);
 
+    const handleDataChange = () => {
+      fetchEvents();
+    };
+    window.addEventListener("dsc_data_change", handleDataChange);
+    return () => window.removeEventListener("dsc_data_change", handleDataChange);
+  }, [selectedEventId]);
+
+  // Active Selected Event Object
   const activeEvent = useMemo(() => {
-    return events.find((e) => e.id === selectedEventId || e.slug === selectedEventId) || events[0] || null;
+    return events.find((e) => e.id === selectedEventId) || events[0] || null;
   }, [events, selectedEventId]);
 
-  // Adjust teammates array length when teamSize changes
-  useEffect(() => {
-    const needed = Math.max(1, teamSize - 1);
-    setTeammates((prev) => {
-      if (prev.length === needed) return prev;
-      if (prev.length < needed) {
-        const additions: TeamMember[] = Array.from({ length: needed - prev.length }).map(() => ({
-          fullName: "",
-          regNumber: "",
-          email: "",
-          phone: "",
-          branch: DEFAULT_BRANCH,
-          yearSemester: DEFAULT_YEAR,
-          residenceType: "Hosteller",
-        }));
-        return [...prev, ...additions];
-      }
-      return prev.slice(0, needed);
-    });
-  }, [teamSize]);
-
-  // Deadline countdown timer
+  // Countdown timer for active event registration deadline
   useEffect(() => {
     if (!activeEvent) return;
-    const calculateTime = () => {
+    const updateCountdown = () => {
       const deadline = new Date(activeEvent.registrationDeadline).getTime();
       const diff = deadline - Date.now();
       if (diff <= 0) {
@@ -173,27 +162,48 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
         setTimeLeft({ days, hours, minutes, seconds });
       }
     };
-    calculateTime();
-    const interval = setInterval(calculateTime, 1000);
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
   }, [activeEvent]);
 
-  // Check if registrations are closed
-  const isDeadlinePassed = useMemo(() => {
-    if (!activeEvent) return false;
-    return new Date(activeEvent.registrationDeadline).getTime() < Date.now() || !activeEvent.isRegistrationOpen;
-  }, [activeEvent]);
+  // Synchronize team member array length when team size changes
+  useEffect(() => {
+    if (regType !== "team") return;
+    const needed = Math.max(1, teamSize - 1);
+    setTeammates((prev) => {
+      if (prev.length === needed) return prev;
+      if (prev.length < needed) {
+        const extra: TeamMember[] = Array.from({ length: needed - prev.length }).map(() => ({
+          fullName: "",
+          regNumber: "",
+          email: "",
+          phone: "",
+          branch: DEFAULT_BRANCH,
+          yearSemester: DEFAULT_YEAR,
+          residenceType: "Hosteller",
+        }));
+        return [...prev, ...extra];
+      }
+      return prev.slice(0, needed);
+    });
+  }, [teamSize, regType]);
 
-  // Check if at capacity
+  // Capacity & Deadline check
   const isCapacityFull = useMemo(() => {
     if (!activeEvent) return false;
     return (activeEvent.currentRegistrations || 0) >= activeEvent.maxCapacity;
   }, [activeEvent]);
 
-  // Handle OTP Trigger
+  const isDeadlinePassed = useMemo(() => {
+    if (!activeEvent) return false;
+    return new Date(activeEvent.registrationDeadline).getTime() <= Date.now();
+  }, [activeEvent]);
+
+  // OTP handlers
   const handleSendOtp = () => {
-    if (!email || !email.includes("@")) {
-      setErrorMessage("Please provide a valid email address first.");
+    if (!email.trim() || !email.includes("@")) {
+      setErrorMessage("Please enter a valid university email to receive your OTP.");
       return;
     }
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -324,7 +334,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <div className="flex items-center gap-3 text-cyan-400 font-mono">
+        <div className="flex items-center gap-3 text-blue-600 font-mono">
           <RefreshCw className="size-5 animate-spin" />
           <span>Synchronizing Event Registrations...</span>
         </div>
@@ -340,123 +350,144 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
 
     return (
       <div className="registration-success-container max-w-3xl mx-auto px-4 py-8 animate-fadeIn">
-        <div className="glass-card rounded-3xl p-6 md:p-10 border border-cyan-500/30 text-center relative overflow-hidden">
-          <div className="absolute -top-24 -right-24 size-48 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -left-24 size-48 rounded-full bg-blue-600/10 blur-3xl pointer-events-none" />
+        <div className="glass-card rounded-3xl p-6 md:p-10 border border-slate-200 text-center relative overflow-hidden bg-white/95 shadow-xl">
+          <div className="absolute -top-24 -right-24 size-48 rounded-full bg-blue-100/50 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 size-48 rounded-full bg-blue-50/60 blur-3xl pointer-events-none" />
 
           {/* Celebration Header */}
-          <div className="inline-flex size-16 items-center justify-center rounded-2xl bg-sky-500/10 border border-sky-500/30 text-sky-400 mb-5">
+          <div className="inline-flex size-16 items-center justify-center rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 mb-5 shadow-sm">
             <CheckCircle2 className="size-8" />
           </div>
 
-          <h2 className="text-2xl md:text-3xl font-display font-bold text-white mb-2">
-            {isWaitlist ? "Waitlist Application Received!" : "Registration Confirmed!"}
+          <h2 className="text-2xl md:text-3xl font-display font-bold text-slate-900 mb-2">
+            {isWaitlist ? "Priority Waitlist Confirmed!" : "Registration Confirmed!"}
           </h2>
-          <p className="text-sm text-slate-400 max-w-lg mx-auto mb-8">
+          <p className="text-sm text-slate-600 max-w-lg mx-auto mb-8">
             {isWaitlist
-              ? "The event is currently at maximum hall capacity. Your entry has been queued in the priority waitlist and you will be notified if a seat opens up."
-              : "Your pass has been generated. Keep your Registration ID handy during entry check-in."}
+              ? "The hall capacity is currently filled. Your registration has been placed on the priority waitlist. You will be notified via email if a slot frees up."
+              : "Your ticket has been generated and recorded on the Data Science Club platform. Please save or download your official digital event pass below."}
           </p>
 
-          {/* Holographic Pass Preview */}
-          <div className="holographic-pass max-w-md mx-auto rounded-2xl p-6 border border-white/15 bg-gradient-to-br from-slate-900/90 to-slate-950/90 shadow-2xl relative text-left">
-            <div className="flex justify-between items-start border-b border-white/10 pb-4 mb-4">
+          {/* OFFICIAL PASS CARD */}
+          <div className="holographic-pass rounded-3xl p-6 md:p-8 border-2 border-blue-600 bg-white shadow-xl max-w-xl mx-auto mb-8 text-left relative">
+            {/* Pass Top Ribbon */}
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-5">
               <div>
-                <span className="text-[10px] font-mono tracking-widest text-cyan-400 uppercase">
-                  DSC VIT BHOPAL EVENT PASS
+                <span className="text-[10px] font-mono tracking-widest text-[#0052cc] uppercase block font-bold">
+                  DATA SCIENCE CLUB // VIT BHOPAL
                 </span>
-                <h3 className="text-lg font-bold text-white leading-snug">{submissionSuccess.eventTitle}</h3>
+                <span className="text-xs font-mono text-slate-500">OFFICIAL VERIFIED ENTRY PASS</span>
               </div>
               <span
-                className={`px-2.5 py-1 rounded-full font-mono text-[10px] font-bold uppercase tracking-wider ${
+                className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider ${
                   isWaitlist
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                    : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                    : "bg-blue-50 text-blue-700 border border-blue-200"
                 }`}
               >
                 {submissionSuccess.registrationStatus}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs mb-4">
+            {/* Event Name & Candidate Info */}
+            <div className="mb-6">
+              <h3 className="text-xl font-display font-bold text-slate-900 leading-tight mb-1">
+                {submissionSuccess.eventTitle}
+              </h3>
+              <p className="text-xs text-slate-600">Pass Token: {submissionSuccess.id}</p>
+            </div>
+
+            {/* Candidate & Event Details Grid */}
+            <div className="grid grid-cols-2 gap-4 text-xs mb-6 border-y border-slate-100 py-4">
               <div>
-                <span className="text-slate-400 block text-[10px]">ATTENDEE / LEADER</span>
-                <span className="font-semibold text-white">{submissionSuccess.fullName}</span>
-                <span className="text-slate-400 block text-[10px]">{submissionSuccess.regNumber}</span>
+                <span className="text-slate-500 block text-[10px]">ATTENDEE / LEAD</span>
+                <span className="font-semibold text-slate-900">{submissionSuccess.fullName}</span>
+                <span className="text-slate-500 block text-[10px]">
+                  {submissionSuccess.regNumber} ({submissionSuccess.branch})
+                </span>
               </div>
+
               <div>
-                <span className="text-slate-400 block text-[10px]">FORMAT</span>
-                <span className="font-semibold text-cyan-300">
+                <span className="text-slate-500 block text-[10px]">ENTRY TYPE</span>
+                <span className="font-semibold text-[#0052cc] uppercase">
                   {submissionSuccess.regType === "team"
-                    ? `Team: ${submissionSuccess.teamName} (${submissionSuccess.teamSize} pax)`
-                    : "Individual"}
+                    ? `Team (${submissionSuccess.teamName || "Group"})`
+                    : "Individual Pass"}
                 </span>
+                {submissionSuccess.regType === "team" && (
+                  <span className="text-slate-500 block text-[10px]">
+                    Size: {submissionSuccess.teamSize} builders
+                  </span>
+                )}
               </div>
+
               <div>
-                <span className="text-slate-400 block text-[10px]">REGISTRATION ID</span>
-                <span className="font-mono font-bold text-cyan-400">{submissionSuccess.registrationId}</span>
+                <span className="text-slate-500 block text-[10px]">CONTACT TELEMETRY</span>
+                <span className="text-slate-700 font-mono text-[11px] block">{submissionSuccess.email}</span>
+                <span className="text-slate-700 font-mono text-[11px] block">{submissionSuccess.phone}</span>
               </div>
+
               <div>
-                <span className="text-slate-400 block text-[10px]">PAYMENT</span>
-                <span className="font-semibold text-slate-200">
-                  {submissionSuccess.paymentAmount > 0
-                    ? `₹${submissionSuccess.paymentAmount} (${submissionSuccess.paymentStatus})`
-                    : "Free Entry"}
+                <span className="text-slate-500 block text-[10px]">PAYMENT STATUS</span>
+                <span className="font-semibold text-slate-900 uppercase">
+                  {submissionSuccess.paymentStatus === "free" ? "Free Admission" : "Verified Payment"}
                 </span>
+                {submissionSuccess.paymentUtr && (
+                  <span className="text-slate-500 font-mono text-[10px] block">
+                    UTR: {submissionSuccess.paymentUtr}
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* QR Code token */}
-            <div className="bg-white p-3 rounded-xl flex items-center justify-between">
-              <QRCodeSVG
-                value={`DSC-VERIFY:${submissionSuccess.registrationId}:${submissionSuccess.regNumber}`}
-                size={70}
-                level="M"
-              />
-              <div className="text-right text-slate-800 text-[10px] font-mono leading-tight">
-                <span className="font-bold block text-slate-900">OFFICIAL SECURITY TOKEN</span>
-                <span>Scan at event kiosk</span>
-                <span className="block text-slate-500 mt-1">
-                  {new Date(submissionSuccess.registeredAt).toLocaleDateString()}
+            {/* Security QR Code */}
+            <div className="flex items-center justify-between gap-4 pt-2">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500 block mb-1">
+                  SECURITY GATE VERIFICATION
                 </span>
+                <span className="text-xs text-slate-600 block">
+                  Scan at AB-1 / Innovation Center reception for immediate check-in badge printing.
+                </span>
+              </div>
+
+              <div className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm shrink-0">
+                <QRCodeSVG
+                  value={`DSC-PASS:${submissionSuccess.id}|EVT:${submissionSuccess.eventId}|REG:${submissionSuccess.regNumber}`}
+                  size={76}
+                  level="M"
+                  fgColor="#0052cc"
+                  bgColor="#ffffff"
+                />
               </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="mt-8 flex flex-wrap gap-4 justify-center">
+          {/* Action Buttons: PDF Download & Sharing */}
+          <div className="flex flex-wrap gap-4 justify-center">
             <button
-              onClick={() => generateRegistrationPdf(submissionSuccess, activeEvent)}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold text-xs hover:brightness-110 transition-all shadow-lg shadow-cyan-500/20 cursor-pointer"
+              onClick={() => generateRegistrationPdf(submissionSuccess)}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-bold text-xs transition-all cursor-pointer shadow-md"
             >
-              <Download className="size-4" /> Download Official PDF Badge & Receipt
-            </button>
-
-            <button
-              onClick={() => window.print()}
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white/10 text-white hover:bg-white/15 border border-white/10 font-bold text-xs transition-all cursor-pointer"
-            >
-              <Printer className="size-4" /> Print Badge
+              <Download className="size-4" /> Download Official PDF Receipt
             </button>
 
             <a
               href={`https://wa.me/?text=${encodeURIComponent(
-                `🎉 I just registered for *${submissionSuccess.eventTitle}* at DSC VIT Bhopal! Pass ID: *${submissionSuccess.registrationId}*. Register yours here: ${window.location.href}`,
+                `🎉 I just registered for *${submissionSuccess.eventTitle}* organized by the Data Science Club at VIT Bhopal! Grab your entry pass here: ${window.location.origin}/register`,
               )}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/30 font-bold text-xs transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 font-bold text-xs transition-all cursor-pointer shadow-sm"
             >
               <Share2 className="size-4" /> Share on WhatsApp
             </a>
-          </div>
 
-          <div className="mt-8 pt-6 border-t border-white/10">
             <button
               onClick={handleResetForAnother}
-              className="text-xs text-slate-400 hover:text-white underline cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-200 font-bold text-xs transition-all cursor-pointer shadow-sm"
             >
-              Register Another Student or Event
+              Register Another Participant
             </button>
           </div>
         </div>
@@ -465,62 +496,72 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
   }
 
   // =========================================================================
-  // MAIN REGISTRATION FORM
+  // MAIN REGISTRATION INTAKE FORM VIEW
   // =========================================================================
   return (
-    <div className="registration-portal-wrapper max-w-4xl mx-auto px-4 py-8">
-      {/* Event Selector Dropdown if multiple events */}
-      {events.length > 1 && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
-          <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-            <Calendar className="size-4 text-cyan-400" />
-            <span>SELECT ACTIVE EVENT:</span>
+    <div className="registration-portal-wrapper max-w-5xl mx-auto px-4 py-8">
+      {/* Header Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-[#0052cc] text-xs font-mono mb-2 shadow-xs">
+            <span className="size-2 rounded-full bg-blue-600 animate-pulse" />
+            <span>DSC VIT BHOPAL EVENT DESK</span>
           </div>
-          <select
-            value={activeEvent?.id}
-            onChange={(e) => {
-              setSelectedEventId(e.target.value);
-              setIsOtpVerified(false);
-              setIsOtpSent(false);
-            }}
-            className="bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2 text-xs font-medium focus:border-cyan-400 focus:outline-none"
-          >
-            {events.map((evt) => (
-              <option key={evt.id} value={evt.id}>
-                {evt.title} ({evt.isPaidEvent ? `₹${evt.registrationFee}` : "FREE"})
-              </option>
-            ))}
-          </select>
+          <h2 className="text-2xl md:text-3xl font-display font-extrabold text-slate-900 tracking-tight">
+            Event Pass & Team Registration
+          </h2>
         </div>
-      )}
+
+        {/* Event Quick Switcher */}
+        {events.length > 1 && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-slate-600 font-medium whitespace-nowrap">Select Sprint:</label>
+            <select
+              value={activeEvent?.id}
+              onChange={(e) => {
+                setSelectedEventId(e.target.value);
+                setIsOtpVerified(false);
+                setIsOtpSent(false);
+              }}
+              className="bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2 text-xs font-medium focus:border-blue-600 focus:outline-none shadow-xs"
+            >
+              {events.map((evt) => (
+                <option key={evt.id} value={evt.id}>
+                  {evt.title} ({evt.isPaidEvent ? `₹${evt.registrationFee}` : "FREE"})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
 
       {/* Active Event Banner & Stats */}
       {activeEvent && (
-        <div className="glass-card rounded-3xl p-6 md:p-8 border border-white/10 mb-8 relative overflow-hidden">
+        <div className="glass-card rounded-3xl p-6 md:p-8 border border-slate-200 bg-white/95 mb-8 relative overflow-hidden shadow-sm">
           <div className="flex flex-col md:flex-row justify-between gap-6">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold tracking-widest uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold tracking-widest uppercase bg-blue-50 text-[#0052cc] border border-blue-200">
                   {activeEvent.tag}
                 </span>
                 <span
                   className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-widest ${
                     activeEvent.isPaidEvent
-                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                      : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                      ? "bg-amber-50 text-amber-700 border border-amber-200"
+                      : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                   }`}
                 >
                   {activeEvent.isPaidEvent ? `Registration Fee: ₹${activeEvent.registrationFee}` : "Free Admission"}
                 </span>
               </div>
 
-              <h1 className="text-2xl md:text-3xl font-display font-bold text-white mb-3">
+              <h1 className="text-2xl md:text-3xl font-display font-bold text-slate-900 mb-3">
                 {activeEvent.title}
               </h1>
 
-              <div className="flex flex-wrap gap-4 text-xs text-slate-300 mb-4">
+              <div className="flex flex-wrap gap-4 text-xs text-slate-600 mb-4">
                 <span className="flex items-center gap-1.5">
-                  <Calendar className="size-3.5 text-cyan-400" />
+                  <Calendar className="size-3.5 text-[#0052cc]" />
                   {new Date(activeEvent.eventDate).toLocaleDateString("en-IN", {
                     weekday: "short",
                     year: "numeric",
@@ -529,26 +570,26 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
                   })}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <MapPin className="size-3.5 text-cyan-400" />
+                  <MapPin className="size-3.5 text-[#0052cc]" />
                   {activeEvent.venue}
                 </span>
                 <span className="flex items-center gap-1.5 font-mono">
-                  <Users className="size-3.5 text-cyan-400" />
+                  <Users className="size-3.5 text-[#0052cc]" />
                   Capacity: {activeEvent.currentRegistrations} / {activeEvent.maxCapacity} slots
                 </span>
               </div>
 
-              <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">{activeEvent.description}</p>
+              <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">{activeEvent.description}</p>
             </div>
 
             {/* Countdown & Capacity Gauge */}
-            <div className="flex flex-col justify-between md:items-end min-w-[240px] pt-4 md:pt-0 border-t md:border-t-0 border-white/10">
+            <div className="flex flex-col justify-between md:items-end min-w-[240px] pt-4 md:pt-0 border-t md:border-t-0 border-slate-200">
               <div className="text-right">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 block mb-1">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500 block mb-1 font-semibold">
                   REGISTRATION DEADLINE
                 </span>
-                <div className="flex items-center gap-2 font-mono text-sm font-bold text-white bg-slate-900/80 px-3 py-2 rounded-xl border border-white/10">
-                  <Clock className="size-4 text-cyan-400" />
+                <div className="flex items-center gap-2 font-mono text-sm font-bold text-slate-900 bg-slate-100 px-3 py-2 rounded-xl border border-slate-200">
+                  <Clock className="size-4 text-[#0052cc]" />
                   <span>
                     {timeLeft.days}d : {timeLeft.hours}h : {timeLeft.minutes}m : {timeLeft.seconds}s
                   </span>
@@ -557,16 +598,16 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
 
               {/* Capacity Progress Bar */}
               <div className="w-full mt-4">
-                <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-1">
+                <div className="flex justify-between text-[10px] font-mono text-slate-500 mb-1">
                   <span>Capacity Filled</span>
                   <span>
                     {Math.round(((activeEvent.currentRegistrations || 0) / activeEvent.maxCapacity) * 100)}%
                   </span>
                 </div>
-                <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
-                      isCapacityFull ? "bg-amber-500" : "bg-gradient-to-r from-cyan-500 to-blue-500"
+                      isCapacityFull ? "bg-amber-500" : "bg-blue-600"
                     }`}
                     style={{
                       width: `${Math.min(
@@ -582,8 +623,8 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
 
           {/* Warning Banners */}
           {isDeadlinePassed && (
-            <div className="mt-6 flex items-center gap-3 p-3.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs">
-              <AlertCircle className="size-4 shrink-0 text-rose-400" />
+            <div className="mt-6 flex items-center gap-3 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+              <AlertCircle className="size-4 shrink-0 text-rose-500" />
               <span>
                 <strong>Registrations Closed:</strong> The deadline for this event has expired. Submissions are no longer accepted.
               </span>
@@ -591,8 +632,8 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
           )}
 
           {isCapacityFull && !isDeadlinePassed && (
-            <div className="mt-6 flex items-center gap-3 p-3.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs">
-              <AlertCircle className="size-4 shrink-0 text-amber-400" />
+            <div className="mt-6 flex items-center gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+              <AlertCircle className="size-4 shrink-0 text-amber-500" />
               <span>
                 <strong>Capacity Limit Reached:</strong> Hall capacity is full. Any registrations submitted now will be placed on the official <strong>Priority Waitlist</strong>.
               </span>
@@ -602,18 +643,18 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
       )}
 
       {/* REGISTRATION FORM */}
-      <form onSubmit={handleSubmit} className="glass-card rounded-3xl p-6 md:p-10 border border-white/10">
+      <form onSubmit={handleSubmit} className="glass-card rounded-3xl p-6 md:p-10 border border-slate-200 bg-white/95 shadow-md">
         {/* Error message banner */}
         {errorMessage && (
-          <div className="mb-6 flex items-center gap-3 p-4 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs animate-shake">
-            <AlertCircle className="size-5 shrink-0 text-rose-400" />
+          <div className="mb-6 flex items-center gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs animate-shake">
+            <AlertCircle className="size-5 shrink-0 text-rose-500" />
             <span>{errorMessage}</span>
           </div>
         )}
 
         {/* Step 1: Mode Switcher */}
         <div className="mb-8">
-          <label className="text-xs font-mono uppercase tracking-widest text-slate-400 block mb-3">
+          <label className="text-xs font-mono uppercase tracking-widest text-slate-500 block mb-3 font-semibold">
             1. REGISTRATION FORMAT
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -622,16 +663,16 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
               onClick={() => setRegType("individual")}
               className={`p-4 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
                 regType === "individual"
-                  ? "bg-cyan-500/10 border-cyan-500/50 shadow-lg shadow-cyan-500/10"
-                  : "bg-white/5 border-white/10 hover:border-white/20"
+                  ? "bg-blue-50 border-blue-500 shadow-sm"
+                  : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
               <User
-                className={`size-5 mt-0.5 ${regType === "individual" ? "text-cyan-400" : "text-slate-400"}`}
+                className={`size-5 mt-0.5 ${regType === "individual" ? "text-[#0052cc]" : "text-slate-400"}`}
               />
               <div>
-                <span className="font-bold text-sm text-white block">Individual Entry</span>
-                <span className="text-xs text-slate-400 leading-tight">
+                <span className="font-bold text-sm text-slate-900 block">Individual Entry</span>
+                <span className="text-xs text-slate-500 leading-tight">
                   Single seat registration for workshops, talks, or solo attendees.
                 </span>
               </div>
@@ -642,16 +683,16 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
               onClick={() => setRegType("team")}
               className={`p-4 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
                 regType === "team"
-                  ? "bg-cyan-500/10 border-cyan-500/50 shadow-lg shadow-cyan-500/10"
-                  : "bg-white/5 border-white/10 hover:border-white/20"
+                  ? "bg-blue-50 border-blue-500 shadow-sm"
+                  : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
               <Users
-                className={`size-5 mt-0.5 ${regType === "team" ? "text-cyan-400" : "text-slate-400"}`}
+                className={`size-5 mt-0.5 ${regType === "team" ? "text-[#0052cc]" : "text-slate-400"}`}
               />
               <div>
-                <span className="font-bold text-sm text-white block">Team Entry (Hackathons / Group)</span>
-                <span className="text-xs text-slate-400 leading-tight">
+                <span className="font-bold text-sm text-slate-900 block">Team Entry (Hackathons / Group)</span>
+                <span className="text-xs text-slate-500 leading-tight">
                   Group registration for multi-member hackathons and team competitions.
                 </span>
               </div>
@@ -661,29 +702,29 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
 
         {/* Team Configuration (if team selected) */}
         {regType === "team" && (
-          <div className="mb-8 p-5 rounded-2xl bg-cyan-950/20 border border-cyan-500/20">
-            <h3 className="text-sm font-display font-bold text-cyan-300 mb-4 flex items-center gap-2">
-              <Users className="size-4" /> Team Details
+          <div className="mb-8 p-5 rounded-2xl bg-blue-50/50 border border-blue-200 shadow-xs">
+            <h3 className="text-sm font-display font-bold text-blue-900 mb-4 flex items-center gap-2">
+              <Users className="size-4 text-[#0052cc]" /> Team Details
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-slate-300 block mb-1.5">Team Name *</label>
+                <label className="text-xs text-slate-700 block mb-1.5 font-medium">Team Name *</label>
                 <input
                   type="text"
                   placeholder="e.g. Matrix Inverters"
                   value={teamName}
                   onChange={(e) => setTeamName(e.target.value)}
-                  className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                  className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                   required
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 block mb-1.5">Total Team Size *</label>
+                <label className="text-xs text-slate-700 block mb-1.5 font-medium">Total Team Size *</label>
                 <select
                   value={teamSize}
                   onChange={(e) => setTeamSize(Number(e.target.value))}
-                  className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                  className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                 >
                   <option value={2}>2 Members (Leader + 1 Teammate)</option>
                   <option value={3}>3 Members (Leader + 2 Teammates)</option>
@@ -697,37 +738,37 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
 
         {/* Step 2: Primary Student / Leader Details */}
         <div className="mb-8">
-          <label className="text-xs font-mono uppercase tracking-widest text-slate-400 block mb-3">
+          <label className="text-xs font-mono uppercase tracking-widest text-slate-500 block mb-3 font-semibold">
             {regType === "team" ? "2. TEAM LEADER INFORMATION" : "2. PARTICIPANT IDENTITY"}
           </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-slate-300 block mb-1.5">Full Name *</label>
+              <label className="text-xs text-slate-700 block mb-1.5 font-medium">Full Name *</label>
               <input
                 type="text"
                 placeholder="Enter your full name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                 required
               />
             </div>
 
             <div>
-              <label className="text-xs text-slate-300 block mb-1.5">Registration / Roll No *</label>
+              <label className="text-xs text-slate-700 block mb-1.5 font-medium">Registration / Roll No *</label>
               <input
                 type="text"
                 placeholder="e.g. 24BAI10042"
                 value={regNumber}
                 onChange={(e) => setRegNumber(e.target.value.toUpperCase())}
-                className="w-full bg-slate-900 border border-white/20 text-white font-mono rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                className="w-full bg-white border border-slate-200 text-slate-900 font-mono rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                 required
               />
             </div>
 
             <div>
-              <label className="text-xs text-slate-300 block mb-1.5">Official University Email *</label>
+              <label className="text-xs text-slate-700 block mb-1.5 font-medium">Official University Email *</label>
               <div className="flex gap-2">
                 <input
                   type="email"
@@ -739,14 +780,14 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
                     setIsOtpSent(false);
                   }}
                   disabled={isOtpVerified}
-                  className="flex-1 bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none disabled:opacity-60"
+                  className="flex-1 bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none disabled:bg-slate-50 disabled:opacity-75 shadow-xs transition-all"
                   required
                 />
                 {!isOtpVerified && (
                   <button
                     type="button"
                     onClick={handleSendOtp}
-                    className="px-4 py-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold hover:bg-cyan-500/30 whitespace-nowrap cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl bg-blue-50 text-[#0052cc] border border-blue-200 text-xs font-semibold hover:bg-blue-100 whitespace-nowrap cursor-pointer transition-colors shadow-xs"
                   >
                     {isOtpSent ? "Resend Code" : "Send OTP"}
                   </button>
@@ -755,23 +796,23 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
             </div>
 
             <div>
-              <label className="text-xs text-slate-300 block mb-1.5">Phone / WhatsApp Number *</label>
+              <label className="text-xs text-slate-700 block mb-1.5 font-medium">Phone / WhatsApp Number *</label>
               <input
                 type="tel"
                 placeholder="10-digit mobile number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
                 required
               />
             </div>
 
             <div>
-              <label className="text-xs text-slate-300 block mb-1.5">Branch / Degree *</label>
+              <label className="text-xs text-slate-700 block mb-1.5 font-medium">Branch / Degree *</label>
               <select
                 value={branch}
                 onChange={(e) => setBranch(e.target.value)}
-                className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
               >
                 {BRANCH_OPTIONS.map((b) => (
                   <option key={b} value={b}>
@@ -782,11 +823,11 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
             </div>
 
             <div>
-              <label className="text-xs text-slate-300 block mb-1.5">Academic Year / Sem *</label>
+              <label className="text-xs text-slate-700 block mb-1.5 font-medium">Academic Year / Sem *</label>
               <select
                 value={yearSemester}
                 onChange={(e) => setYearSemester(e.target.value)}
-                className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
               >
                 {YEAR_OPTIONS.map((y) => (
                   <option key={y} value={y}>
@@ -797,11 +838,11 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
             </div>
 
             <div>
-              <label className="text-xs text-slate-300 block mb-1.5">School / Department</label>
+              <label className="text-xs text-slate-700 block mb-1.5 font-medium">School / Department</label>
               <select
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                className="w-full bg-slate-900 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none shadow-xs transition-all"
               >
                 <option value="SCSE">SCSE (Computer Science & Engineering)</option>
                 <option value="SASL">SASL (Applied Sciences & Languages)</option>
@@ -812,15 +853,15 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
             </div>
 
             <div>
-              <label className="text-xs text-slate-300 block mb-1.5">Residence Status (Logistics) *</label>
+              <label className="text-xs text-slate-700 block mb-1.5 font-medium">Residence Status (Logistics) *</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setResidenceType("Hosteller")}
-                  className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer ${
+                  className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
                     residenceType === "Hosteller"
-                      ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300"
-                      : "bg-slate-900 border-white/10 text-slate-400"
+                      ? "bg-blue-50 border-blue-500 text-[#0052cc] shadow-xs"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
                   }`}
                 >
                   <Building className="size-3.5" /> Hosteller
@@ -828,10 +869,10 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
                 <button
                   type="button"
                   onClick={() => setResidenceType("Day Scholar")}
-                  className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer ${
+                  className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
                     residenceType === "Day Scholar"
-                      ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300"
-                      : "bg-slate-900 border-white/10 text-slate-400"
+                      ? "bg-blue-50 border-blue-500 text-[#0052cc] shadow-xs"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
                   }`}
                 >
                   <User className="size-3.5" /> Day Scholar
@@ -842,8 +883,8 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
 
           {/* OTP Verification Interactive Drawer */}
           {isOtpSent && !isOtpVerified && (
-            <div className="mt-4 p-4 rounded-2xl bg-cyan-950/30 border border-cyan-500/30 animate-fadeIn">
-              <div className="flex items-center gap-2 text-xs font-bold text-cyan-300 mb-2">
+            <div className="mt-4 p-4 rounded-2xl bg-blue-50/70 border border-blue-200 animate-fadeIn">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#0052cc] mb-2">
                 <ShieldCheck className="size-4" /> Enter 6-Digit Email Verification Code
               </div>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -853,18 +894,18 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
                   placeholder="e.g. 481902"
                   value={enteredOtp}
                   onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ""))}
-                  className="bg-slate-900 border border-white/30 text-white font-mono text-center tracking-widest text-lg rounded-xl px-4 py-2 focus:border-cyan-400 focus:outline-none"
+                  className="bg-white border border-slate-300 text-slate-900 font-mono text-center tracking-widest text-lg rounded-xl px-4 py-2 focus:border-blue-600 focus:outline-none shadow-xs"
                 />
                 <button
                   type="button"
                   onClick={handleVerifyOtp}
-                  className="px-6 py-2.5 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs hover:bg-cyan-400 transition-colors cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition-colors cursor-pointer shadow-sm"
                 >
                   Verify Code
                 </button>
               </div>
               {otpNotice && (
-                <div className="mt-2.5 text-[11px] font-mono text-cyan-400 flex items-center gap-1.5">
+                <div className="mt-2.5 text-[11px] font-mono text-blue-700 flex items-center gap-1.5 font-semibold">
                   <CheckCircle2 className="size-3.5 shrink-0" /> {otpNotice}
                 </div>
               )}
@@ -872,8 +913,8 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
           )}
 
           {isOtpVerified && (
-            <div className="mt-4 p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
-              <CheckCircle2 className="size-4 text-emerald-400" />
+            <div className="mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 font-medium">
+              <CheckCircle2 className="size-4 text-emerald-600" />
               <span>
                 Email verified: <strong>{email}</strong>
               </span>
@@ -884,7 +925,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
         {/* Step 3: Teammates Configuration (If Team) */}
         {regType === "team" && (
           <div className="mb-8">
-            <label className="text-xs font-mono uppercase tracking-widest text-slate-400 block mb-3">
+            <label className="text-xs font-mono uppercase tracking-widest text-slate-500 block mb-3 font-semibold">
               3. TEAM MEMBERS DETAILS
             </label>
 
@@ -892,25 +933,25 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
               {teammates.map((member, idx) => (
                 <div
                   key={idx}
-                  className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-all"
+                  className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 hover:border-slate-300 transition-all shadow-xs"
                 >
-                  <span className="text-xs font-mono font-bold text-cyan-400 block mb-3">
+                  <span className="text-xs font-mono font-bold text-[#0052cc] block mb-3">
                     Teammate #{idx + 2} Details
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
                     <div>
-                      <label className="text-[11px] text-slate-400 block mb-1">Full Name *</label>
+                      <label className="text-[11px] text-slate-600 block mb-1 font-medium">Full Name *</label>
                       <input
                         type="text"
                         placeholder="Name"
                         value={member.fullName}
                         onChange={(e) => handleTeammateChange(idx, "fullName", e.target.value)}
-                        className="w-full bg-slate-900 border border-white/15 text-white rounded-lg px-3 py-2 text-xs focus:border-cyan-400 focus:outline-none"
+                        className="w-full bg-white border border-slate-200 text-slate-900 rounded-lg px-3 py-2 text-xs focus:border-blue-600 focus:outline-none shadow-xs"
                         required
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-400 block mb-1">Registration No *</label>
+                      <label className="text-[11px] text-slate-600 block mb-1 font-medium">Registration No *</label>
                       <input
                         type="text"
                         placeholder="24BCE10..."
@@ -918,38 +959,38 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
                         onChange={(e) =>
                           handleTeammateChange(idx, "regNumber", e.target.value.toUpperCase())
                         }
-                        className="w-full bg-slate-900 border border-white/15 text-white font-mono rounded-lg px-3 py-2 text-xs focus:border-cyan-400 focus:outline-none"
+                        className="w-full bg-white border border-slate-200 text-slate-900 font-mono rounded-lg px-3 py-2 text-xs focus:border-blue-600 focus:outline-none shadow-xs"
                         required
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-400 block mb-1">Email *</label>
+                      <label className="text-[11px] text-slate-600 block mb-1 font-medium">Email *</label>
                       <input
                         type="email"
                         placeholder="student@vitbhopal.ac.in"
                         value={member.email}
                         onChange={(e) => handleTeammateChange(idx, "email", e.target.value)}
-                        className="w-full bg-slate-900 border border-white/15 text-white rounded-lg px-3 py-2 text-xs focus:border-cyan-400 focus:outline-none"
+                        className="w-full bg-white border border-slate-200 text-slate-900 rounded-lg px-3 py-2 text-xs focus:border-blue-600 focus:outline-none shadow-xs"
                         required
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-400 block mb-1">Phone *</label>
+                      <label className="text-[11px] text-slate-600 block mb-1 font-medium">Phone *</label>
                       <input
                         type="tel"
                         placeholder="Phone number"
                         value={member.phone}
                         onChange={(e) => handleTeammateChange(idx, "phone", e.target.value)}
-                        className="w-full bg-slate-900 border border-white/15 text-white rounded-lg px-3 py-2 text-xs focus:border-cyan-400 focus:outline-none"
+                        className="w-full bg-white border border-slate-200 text-slate-900 rounded-lg px-3 py-2 text-xs focus:border-blue-600 focus:outline-none shadow-xs"
                         required
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-400 block mb-1">Branch</label>
+                      <label className="text-[11px] text-slate-600 block mb-1 font-medium">Branch</label>
                       <select
                         value={member.branch}
                         onChange={(e) => handleTeammateChange(idx, "branch", e.target.value)}
-                        className="w-full bg-slate-900 border border-white/15 text-white rounded-lg px-3 py-2 text-xs focus:border-cyan-400 focus:outline-none"
+                        className="w-full bg-white border border-slate-200 text-slate-900 rounded-lg px-3 py-2 text-xs focus:border-blue-600 focus:outline-none shadow-xs"
                       >
                         {BRANCH_OPTIONS.map((b) => (
                           <option key={b} value={b}>
@@ -959,11 +1000,11 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
                       </select>
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-400 block mb-1">Residence</label>
+                      <label className="text-[11px] text-slate-600 block mb-1 font-medium">Residence</label>
                       <select
                         value={member.residenceType}
                         onChange={(e) => handleTeammateChange(idx, "residenceType", e.target.value)}
-                        className="w-full bg-slate-900 border border-white/15 text-white rounded-lg px-3 py-2 text-xs focus:border-cyan-400 focus:outline-none"
+                        className="w-full bg-white border border-slate-200 text-slate-900 rounded-lg px-3 py-2 text-xs focus:border-blue-600 focus:outline-none shadow-xs"
                       >
                         <option value="Hosteller">Hosteller</option>
                         <option value="Day Scholar">Day Scholar</option>
@@ -978,41 +1019,43 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
 
         {/* Step 4: Zero-Cost NPCI UPI Payment (If Paid Event) */}
         {activeEvent?.isPaidEvent && activeEvent.registrationFee > 0 && (
-          <div className="mb-8 p-6 rounded-3xl bg-slate-900/90 border border-cyan-500/30">
-            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-cyan-400 mb-4">
+          <div className="mb-8 p-6 rounded-3xl bg-slate-50 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-[#0052cc] mb-4 font-bold">
               <CreditCard className="size-4" /> ZERO-FEE REGISTRATION PAYMENT (₹{activeEvent.registrationFee})
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
               {/* Dynamic NPCI UPI QR */}
-              <div className="flex flex-col items-center p-5 rounded-2xl bg-white text-slate-950">
+              <div className="flex flex-col items-center p-5 rounded-2xl bg-white border border-slate-200 text-slate-900 shadow-xs">
                 <QRCodeSVG
                   value={`upi://pay?pa=${activeEvent.upiId || "dscvitb@upi"}&pn=${encodeURIComponent(
                     activeEvent.upiPayeeName || "DSC VIT Bhopal",
                   )}&am=${activeEvent.registrationFee}&cu=INR`}
                   size={160}
                   level="M"
+                  fgColor="#0052cc"
+                  bgColor="#ffffff"
                 />
-                <span className="text-[10px] font-mono font-bold mt-2 text-slate-700">
+                <span className="text-[10px] font-mono font-bold mt-2 text-slate-600">
                   SCAN WITH ANY UPI APP (GPay / PhonePe / Paytm)
                 </span>
-                <span className="text-xs font-bold text-cyan-700 mt-0.5">
+                <span className="text-xs font-bold text-[#0052cc] mt-0.5">
                   Amount: ₹{activeEvent.registrationFee}
                 </span>
               </div>
 
               {/* UPI Details & UTR Input */}
               <div className="space-y-4">
-                <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                  <span className="text-[10px] text-slate-400 block mb-0.5">CLUB UPI VPA ID</span>
+                <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-xs">
+                  <span className="text-[10px] text-slate-500 block mb-0.5 font-medium">CLUB UPI VPA ID</span>
                   <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-white text-xs">
+                    <span className="font-mono font-bold text-slate-900 text-xs">
                       {activeEvent.upiId || "dscvitb@upi"}
                     </span>
                     <button
                       type="button"
                       onClick={handleCopyUpi}
-                      className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-cyan-300 text-xs flex items-center gap-1 cursor-pointer"
+                      className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0052cc] text-xs flex items-center gap-1 cursor-pointer transition-colors"
                     >
                       {copiedUpi ? <Check className="size-3" /> : <Copy className="size-3" />}
                       <span>{copiedUpi ? "Copied" : "Copy"}</span>
@@ -1024,13 +1067,13 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
                   href={`upi://pay?pa=${activeEvent.upiId || "dscvitb@upi"}&pn=${encodeURIComponent(
                     activeEvent.upiPayeeName || "DSC VIT Bhopal",
                   )}&am=${activeEvent.registrationFee}&cu=INR`}
-                  className="block w-full text-center py-2.5 px-4 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold text-xs hover:bg-cyan-500/30 transition-colors"
+                  className="block w-full text-center py-2.5 px-4 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 font-bold text-xs hover:bg-blue-100 transition-colors shadow-xs"
                 >
                   Open in UPI App (Mobile)
                 </a>
 
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">
+                  <label className="text-xs text-slate-700 block mb-1 font-medium">
                     12-Digit UPI Transaction Reference / UTR *
                   </label>
                   <input
@@ -1039,10 +1082,10 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
                     placeholder="e.g. 429188201928"
                     value={paymentUtr}
                     onChange={(e) => setPaymentUtr(e.target.value.replace(/\D/g, ""))}
-                    className="w-full bg-slate-950 border border-white/20 text-white font-mono rounded-xl px-4 py-2.5 text-xs focus:border-cyan-400 focus:outline-none tracking-wider"
+                    className="w-full bg-white border border-slate-200 text-slate-900 font-mono rounded-xl px-4 py-2.5 text-xs focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none tracking-wider shadow-xs"
                     required
                   />
-                  <span className="text-[10px] text-slate-400 block mt-1">
+                  <span className="text-[10px] text-slate-500 block mt-1">
                     Find this 12-digit number in your payment confirmation screen.
                   </span>
                 </div>
@@ -1052,21 +1095,21 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
         )}
 
         {/* Submit Button */}
-        <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-xs text-slate-400">
+        <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-xs text-slate-600">
             {!isOtpVerified ? (
-              <span className="text-amber-400">⚠️ Verify email OTP before submitting</span>
+              <span className="text-amber-700 font-medium">⚠️ Verify email OTP before submitting</span>
             ) : isCapacityFull ? (
-              <span className="text-amber-400">Submitting entry to Priority Waitlist</span>
+              <span className="text-amber-700 font-medium">Submitting entry to Priority Waitlist</span>
             ) : (
-              <span className="text-emerald-400">All checks completed — Ready to confirm</span>
+              <span className="text-emerald-700 font-medium">All checks completed — Ready to confirm</span>
             )}
           </div>
 
           <button
             type="submit"
             disabled={submitting || isDeadlinePassed || !isOtpVerified}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold text-xs hover:brightness-110 transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {submitting ? (
               <>
@@ -1092,3 +1135,5 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ initialE
     </div>
   );
 };
+
+export default RegistrationPortal;

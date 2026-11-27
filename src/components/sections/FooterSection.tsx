@@ -1,8 +1,8 @@
 import React from "react";
-import { SiloFooter } from "@/components/silo/SiloFooter";
+import { WhiteBlueFooter } from "@/components/navigation/WhiteBlueFooter";
 
 export const FooterSection: React.FC = () => {
-  return <SiloFooter />;
+  return <WhiteBlueFooter />;
 };
 
 export default FooterSection;

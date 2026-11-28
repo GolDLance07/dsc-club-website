@@ -37,18 +37,6 @@ export type EventTag = "HACKATHON" | "BOOTCAMP" | "WORKSHOP" | "TECH TALK" | "ME
 
 export type EventStatus = "draft" | "published" | "archived";
 
-export interface EventPosterItem {
-  id: string; // Unique identifier for the poster slot
-  url: string; // Preview/download URL
-  storagePath: string; // Path in Firebase Storage: events/{eventId}/posters/{posterId}.ext
-  caption?: string | undefined; // Optional human-readable caption
-  isPrimary: boolean; // Exactly one poster must have isPrimary === true
-  displayOrder: number; // Order index: 1 to 5
-  width?: number | undefined;
-  height?: number | undefined;
-  uploadedAt?: string | undefined;
-}
-
 export interface CentralizedClubEvent {
   id: string; // Unique document ID (e.g. slug-based or uuid)
   slug: string; // URL-safe unique slug
@@ -61,9 +49,10 @@ export interface CentralizedClubEvent {
   endDate: string; // ISO 8601 end timestamp
   timeDisplay: string; // Human readable timing e.g. "10:00 AM - 4:00 PM IST"
   venue: string; // Venue location name / auditorium / online
+  mode?: "In-Person" | "Online" | "Hybrid" | string | undefined; // Event delivery mode
+  speaker?: string | undefined; // Optional speaker or organizing lead
   description: string; // Overview summary (20+ chars)
   longBio: string; // Detailed briefing for details modal (50+ chars)
-  posters: EventPosterItem[]; // Array of 1 to 5 poster objects
   maxCapacity: number; // Attendee capacity ceiling
   currentRegistrations: number; // System-managed counter
   registrationDeadline: string; // ISO 8601 deadline (deadline <= startDate)

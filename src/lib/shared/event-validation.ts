@@ -1,5 +1,5 @@
 /**
- * DSC VIT Bhopal — Pure Shared Event & Poster Validation Module
+ * DSC VIT Bhopal — Pure Shared Event Validation Module
  *
  * Platform-agnostic validation logic. Runs identically across:
  * - Cloudflare Workers (V8 isolate)
@@ -18,16 +18,6 @@ export const ALLOWED_DOMAINS = [
 ] as const;
 
 export type ClubDomain = (typeof ALLOWED_DOMAINS)[number];
-
-export const ALLOWED_POSTER_MIMES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-] as const;
-
-export const MAX_POSTER_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
-export const MAX_POSTERS_PER_EVENT = 5;
-export const MIN_POSTERS_FOR_PUBLISH = 1;
 
 /**
  * Parses timestamp value from ISO string, Date, number, or Firestore timestamp object.
@@ -56,15 +46,6 @@ export interface ValidationResult {
   errors: string[];
 }
 
-export interface PosterItemLike {
-  id?: string;
-  storagePath?: string;
-  url?: string;
-  isPrimary?: boolean;
-  displayOrder?: number;
-  caption?: string;
-}
-
 export interface EventLike {
   title?: string;
   description?: string;
@@ -75,12 +56,11 @@ export interface EventLike {
   startDate?: unknown;
   endDate?: unknown;
   registrationDeadline?: unknown;
-  posters?: PosterItemLike[];
 }
 
 /**
  * Comprehensive publishing validation.
- * Enforces all content lengths, chronological constraints, and poster integrity.
+ * Enforces all content lengths and chronological constraints.
  */
 export function validateEventForPublish(event: EventLike): ValidationResult {
   const errors: string[] = [];
@@ -128,57 +108,6 @@ export function validateEventForPublish(event: EventLike): ValidationResult {
     errors.push("Registration deadline must be a valid ISO timestamp.");
   } else if (deadline > start) {
     errors.push("Registration deadline cannot occur after event starts.");
-  }
-
-  if (!Array.isArray(event.posters) || event.posters.length < MIN_POSTERS_FOR_PUBLISH) {
-    errors.push("Event must have between 1 and 5 posters attached.");
-  } else if (event.posters.length > MAX_POSTERS_PER_EVENT) {
-    errors.push("Event cannot have more than 5 posters.");
-  } else {
-    const primaryCount = event.posters.filter((p) => p && p.isPrimary === true).length;
-    if (primaryCount !== 1) {
-      errors.push(`Exactly ONE poster must be marked as primary cover (found ${primaryCount}).`);
-    }
-
-    event.posters.forEach((poster, idx) => {
-      if (!poster.storagePath || typeof poster.storagePath !== "string" || poster.storagePath.trim() === "") {
-        errors.push(`Poster #${idx + 1} is missing a valid R2 storagePath.`);
-      }
-    });
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-  };
-}
-
-/**
- * Validates poster file attributes for upload.
- */
-export function validatePosterUpload(params: {
-  contentType: string;
-  sizeBytes: number;
-  currentPostersCount: number;
-}): ValidationResult {
-  const errors: string[] = [];
-
-  const normalizedMime = params.contentType.toLowerCase().split(";")[0]?.trim() || "";
-  if (!ALLOWED_POSTER_MIMES.includes(normalizedMime as (typeof ALLOWED_POSTER_MIMES)[number])) {
-    errors.push(
-      `Invalid image format "${params.contentType}". Allowed formats: JPEG, PNG, WebP.`
-    );
-  }
-
-  if (params.sizeBytes <= 0) {
-    errors.push("File is empty (0 bytes).");
-  } else if (params.sizeBytes > MAX_POSTER_SIZE_BYTES) {
-    const sizeMb = (params.sizeBytes / (1024 * 1024)).toFixed(1);
-    errors.push(`File size (${sizeMb} MB) exceeds maximum allowed limit of 5 MB.`);
-  }
-
-  if (params.currentPostersCount >= MAX_POSTERS_PER_EVENT) {
-    errors.push(`Maximum poster limit reached (${MAX_POSTERS_PER_EVENT} posters allowed per event).`);
   }
 
   return {

@@ -20,7 +20,7 @@ export interface VerifiedUser {
   leadDomain: string;
 }
 
-interface GoogleJwks {
+export interface GoogleJwks {
   keys: Array<{
     kty: string;
     alg: string;
@@ -88,7 +88,8 @@ function parseJwtJson<T>(str: string): T {
  */
 export async function verifyFirebaseIdToken(
   idToken: string,
-  projectId: string
+  projectId: string,
+  customJwks?: GoogleJwks["keys"]
 ): Promise<VerifiedUser> {
   if (!idToken || typeof idToken !== "string") {
     throw new AuthError("Missing or invalid token.", 401);
@@ -158,8 +159,8 @@ export async function verifyFirebaseIdToken(
     throw new AuthError("Token has empty or invalid subject (sub).", 401);
   }
 
-  // 3. Cryptographic Signature Verification via Google JWKS
-  const jwks = await getGooglePublicKeys();
+  // 3. Cryptographic Signature Verification via Google JWKS (or customJwks for tests)
+  const jwks = customJwks || (await getGooglePublicKeys());
   const matchingKey = jwks.find((k) => k.kid === header.kid);
   if (!matchingKey) {
     throw new AuthError(`Public key with kid "${header.kid}" not found in Google JWKS.`, 401);

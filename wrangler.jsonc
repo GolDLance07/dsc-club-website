@@ -1,8 +1,9 @@
 /**
  * DSC VIT Bhopal — Cloudflare Worker Configuration
  *
- * Deploys the trusted event lifecycle and R2 poster storage API.
+ * Deploys the trusted event lifecycle API.
  * Free tier compatible (Zero Google Cloud / Firebase Blaze costs).
+ * (Event poster storage is deferred.)
  */
 {
   "$schema": "node_modules/wrangler/config-schema.json",
@@ -13,19 +14,12 @@
     "nodejs_compat"
   ],
 
-  // Private Cloudflare R2 Bucket Binding for Event Posters
-  "r2_buckets": [
-    {
-      "binding": "POSTERS_BUCKET",
-      "bucket_name": "dsc-club-posters",
-      "preview_bucket_name": "dsc-club-posters-dev"
-    }
-  ],
-
   // Public Worker Environment Variables (Non-sensitive)
+  // To migrate frontend to Cloudflare Pages later, update ALLOWED_ORIGIN below
+  // (single origin or comma-separated list during transition, e.g. "https://dscvitb.vercel.app,https://dscvitb.pages.dev")
   "vars": {
     "FIREBASE_PROJECT_ID": "dscvitb-ac7bf",
-    "ALLOWED_ORIGIN": "*"
+    "ALLOWED_ORIGIN": "https://dscvitb.vercel.app"
   }
 
   // SENSITIVE SECRETS:

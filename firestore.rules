@@ -169,9 +169,10 @@ service cloud.firestore {
               'endDate',
               'timeDisplay',
               'venue',
+              'mode',
+              'speaker',
               'description',
               'longBio',
-              'posters',
               'maxCapacity',
               'registrationDeadline',
               'isRegistrationOpen',
@@ -181,8 +182,9 @@ service cloud.firestore {
           )
         );
 
-      // DELETE: Strictly Super Admin.
-      allow delete: if isSuperAdmin();
+      // DELETE:
+      // Client-side deletes are completely disabled. Deletions MUST go through trusted Worker API.
+      allow delete: if false;
     }
 
     // =========================================================================

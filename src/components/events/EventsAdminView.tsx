@@ -9,15 +9,14 @@ import {
   archiveEvent,
   deleteEvent,
   validatePublishEvent,
+  isWorkerConfigured,
 } from "@/lib/firebase/events";
-import { PosterUploadManager } from "./PosterUploadManager";
 import {
   Calendar,
   Clock,
   MapPin,
   Users,
   Search,
-  Filter,
   Plus,
   Edit3,
   Globe,
@@ -28,8 +27,6 @@ import {
   AlertCircle,
   CheckCircle2,
   X,
-  Star,
-  ExternalLink,
   ShieldAlert,
   Loader2,
 } from "lucide-react";
@@ -89,6 +86,8 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
     userRole === "team_lead" && leadDomain !== "None" ? leadDomain : "Technical"
   );
   const [formVenue, setFormVenue] = useState<string>("");
+  const [formMode, setFormMode] = useState<string>("In-Person");
+  const [formSpeaker, setFormSpeaker] = useState<string>("");
   const [formTimeDisplay, setFormTimeDisplay] = useState<string>("");
   const [formStartDate, setFormStartDate] = useState<string>("");
   const [formEndDate, setFormEndDate] = useState<string>("");
@@ -96,7 +95,6 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
   const [formMaxCapacity, setFormMaxCapacity] = useState<number>(100);
   const [formDescription, setFormDescription] = useState<string>("");
   const [formLongBio, setFormLongBio] = useState<string>("");
-  const [formPosters, setFormPosters] = useState<CentralizedClubEvent["posters"]>([]);
 
   const isSuperAdmin = userRole === "super_admin";
   const isFaculty = userRole === "faculty_coordinator";
@@ -130,6 +128,8 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
     setFormCategory("WORKSHOP");
     setFormDomain(userRole === "team_lead" && leadDomain !== "None" ? leadDomain : "Technical");
     setFormVenue("");
+    setFormMode("In-Person");
+    setFormSpeaker("");
     setFormTimeDisplay("");
 
     const now = new Date();
@@ -142,7 +142,6 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
     setFormMaxCapacity(150);
     setFormDescription("");
     setFormLongBio("");
-    setFormPosters([]);
     setIsModalOpen(true);
   };
 
@@ -156,6 +155,8 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
     setFormCategory(event.category);
     setFormDomain(event.domainScope);
     setFormVenue(event.venue);
+    setFormMode(event.mode || "In-Person");
+    setFormSpeaker(event.speaker || "");
     setFormTimeDisplay(event.timeDisplay);
     setFormStartDate(event.startDate ? event.startDate.slice(0, 16) : "");
     setFormEndDate(event.endDate ? event.endDate.slice(0, 16) : "");
@@ -163,7 +164,6 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
     setFormMaxCapacity(event.maxCapacity || 100);
     setFormDescription(event.description || "");
     setFormLongBio(event.longBio || "");
-    setFormPosters(event.posters || []);
     setIsModalOpen(true);
   };
 
@@ -194,6 +194,8 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
       category: formCategory,
       domainScope: isTeamLead ? leadDomain : formDomain,
       venue: formVenue.trim(),
+      mode: formMode,
+      speaker: formSpeaker.trim() || undefined,
       timeDisplay: formTimeDisplay.trim(),
       startDate: new Date(formStartDate).toISOString(),
       endDate: new Date(formEndDate).toISOString(),
@@ -201,7 +203,6 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
       maxCapacity: Number(formMaxCapacity) || 100,
       description: formDescription.trim(),
       longBio: formLongBio.trim(),
-      posters: formPosters,
       isRegistrationOpen: true,
     };
 
@@ -309,7 +310,7 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
   // Delete Event (Super Admin Only)
   const handleDelete = async (eventId: string, eventTitle: string) => {
     if (!isSuperAdmin) return;
-    if (!confirm(`PERMANENT ACTION: Delete event "${eventTitle}" and all attached posters?`)) {
+    if (!confirm(`PERMANENT ACTION: Delete event "${eventTitle}"?`)) {
       return;
     }
 
@@ -353,7 +354,7 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
             Centralized Event Management
           </h3>
           <p className="text-xs text-slate-400">
-            Create drafts, upload high-res posters, manage capacities, and control publishing.
+            Create drafts, manage event metadata & capacities, and control publishing.
           </p>
         </div>
 
@@ -369,6 +370,20 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
           </button>
         )}
       </div>
+
+      {!isWorkerConfigured() && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-3">
+          <ShieldAlert className="size-5 shrink-0 text-amber-400 mt-0.5" />
+          <div className="space-y-1">
+            <strong className="font-semibold block text-amber-200">
+              Cloudflare Worker API Configuration Required (VITE_WORKER_API_URL)
+            </strong>
+            <p className="text-amber-300/90 leading-relaxed">
+              The public Cloudflare Worker API URL is not configured. Event lifecycle operations (publish, unpublish, archive, delete) are disabled until <code className="px-1.5 py-0.5 rounded bg-black/40 font-mono text-amber-200">VITE_WORKER_API_URL</code> is set in your deployment environment settings.
+            </p>
+          </div>
+        </div>
+      )}
 
       {actionSuccess && (
         <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
@@ -466,8 +481,6 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredEvents.map((event) => {
-            const primaryPoster =
-              event.posters?.find((p) => p.isPrimary) || event.posters?.[0];
             const validation = validatePublishEvent(event);
             const canEdit =
               isSuperAdmin || (isTeamLead && event.domainScope === leadDomain && event.status === "draft");
@@ -478,45 +491,28 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
                 className="p-4 rounded-2xl bg-slate-900/90 border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between"
               >
                 <div>
-                  {/* Poster Thumbnail Header */}
-                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-slate-950 border border-white/5 mb-3 relative">
-                    {primaryPoster ? (
-                      <img
-                        src={primaryPoster.url}
-                        alt={event.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 text-xs">
-                        <Calendar className="size-6 mb-1 opacity-50" />
-                        <span>No Poster Uploaded</span>
-                      </div>
-                    )}
-
-                    {/* Status Pill */}
-                    <div className="absolute top-2.5 right-2.5">
-                      <span
-                        className={`px-2 py-0.5 rounded-full font-mono text-[9px] font-bold uppercase tracking-wider ${
-                          event.status === "published"
-                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 backdrop-blur-md"
-                            : event.status === "draft"
-                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 backdrop-blur-md"
-                            : "bg-slate-500/20 text-slate-300 border border-slate-500/40 backdrop-blur-md"
-                        }`}
-                      >
-                        {event.status}
-                      </span>
-                    </div>
-
-                    {/* Category & Domain badge */}
-                    <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-950/80 backdrop-blur-md text-[9px] font-mono text-cyan-300 border border-white/10">
+                  {/* Event Metadata & Status Header */}
+                  <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-white/10">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-950 text-[9px] font-mono text-cyan-300 border border-white/10">
                         {event.category}
                       </span>
-                      <span className="px-2 py-0.5 rounded-md bg-slate-950/80 backdrop-blur-md text-[9px] font-mono text-slate-300 border border-white/10">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-950 text-[9px] font-mono text-slate-300 border border-white/10">
                         {event.domainScope}
                       </span>
                     </div>
+
+                    <span
+                      className={`px-2 py-0.5 rounded-full font-mono text-[9px] font-bold uppercase tracking-wider shrink-0 ${
+                        event.status === "published"
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                          : event.status === "draft"
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          : "bg-slate-500/20 text-slate-300 border border-slate-500/40"
+                      }`}
+                    >
+                      {event.status}
+                    </span>
                   </div>
 
                   {/* Title & Timing */}
@@ -548,7 +544,7 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
                 {/* Footer Controls */}
                 <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
                   <div className="text-[10px] font-mono text-slate-400">
-                    {event.posters?.length || 0} poster(s)
+                    {event.startDate ? new Date(event.startDate).toLocaleDateString() : "Date TBA"}
                   </div>
 
                   <div className="flex items-center gap-1.5">
@@ -679,7 +675,7 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
                 <p className="text-xs text-slate-400">
                   {isFaculty
                     ? "Read-only inspection for institutional oversight."
-                    : "Fill out the required event metadata and attach 1–5 posters."}
+                    : "Fill out the required event details and save as a draft."}
                 </p>
               </div>
 
@@ -832,7 +828,7 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
                 </div>
               </div>
 
-              {/* Row 4: Venue & Display Time String */}
+              {/* Row 4: Venue, Mode, Speaker & Display Time String */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-[11px] font-mono text-slate-300 block mb-1">
@@ -860,6 +856,36 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
                     placeholder="e.g. 10:00 AM - 4:00 PM IST"
                     value={formTimeDisplay}
                     onChange={(e) => setFormTimeDisplay(e.target.value)}
+                    className="w-full bg-slate-950 border border-white/20 text-white rounded-xl px-3.5 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-mono text-slate-300 block mb-1">
+                    Event Mode *
+                  </label>
+                  <select
+                    disabled={isFaculty}
+                    value={formMode}
+                    onChange={(e) => setFormMode(e.target.value)}
+                    className="w-full bg-slate-950 border border-white/20 text-white rounded-xl px-3 py-2.5 text-xs focus:border-cyan-400 focus:outline-none font-mono"
+                  >
+                    <option value="In-Person">In-Person</option>
+                    <option value="Online">Online</option>
+                    <option value="Hybrid">Hybrid</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-mono text-slate-300 block mb-1">
+                    Speaker / Host (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    disabled={isFaculty}
+                    placeholder="e.g. Dr. Arvind Rao / DSC Core Team"
+                    value={formSpeaker}
+                    onChange={(e) => setFormSpeaker(e.target.value)}
                     className="w-full bg-slate-950 border border-white/20 text-white rounded-xl px-3.5 py-2.5 text-xs focus:border-cyan-400 focus:outline-none"
                   />
                 </div>
@@ -896,16 +922,6 @@ export const EventsAdminView: React.FC<EventsAdminViewProps> = ({
                     className="w-full bg-slate-950 border border-white/20 text-white rounded-xl p-3 text-xs focus:border-cyan-400 focus:outline-none resize-none"
                   />
                 </div>
-              </div>
-
-              {/* Row 6: Poster Upload Section */}
-              <div className="pt-2">
-                <PosterUploadManager
-                  eventId={formSlug || editingEvent?.id || "temp-event"}
-                  posters={formPosters}
-                  onChange={(updated) => setFormPosters(updated)}
-                  disabled={isFaculty}
-                />
               </div>
 
               {/* Modal Action Buttons */}

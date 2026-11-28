@@ -4,7 +4,7 @@
  * Implements:
  * - Domain-scoped event queries for Team Leads (`domainScope == leadDomain`).
  * - Universal administrative access for Super Admin and Faculty Coordinator.
- * - Strict publishing validation (1–5 posters, exactly one primary, chronological dates).
+ * - Strict publishing validation (content metadata and chronological date checks).
  * - Lifecycle state transitions ('draft', 'published', 'archived') restricted to Super Admin.
  * - Public querying for published events.
  * - Unconfigured fallback to preserve local development without crashing.
@@ -17,23 +17,54 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   orderBy,
+  limit,
 } from "firebase/firestore";
 import { getFirebaseFirestore, FIRESTORE_COLLECTIONS } from "./firestore";
 import { isFirebaseConfigured } from "./config";
 import { getFirebaseAuth } from "./auth";
-import { deleteEventPoster, getWorkerApiBase } from "@/lib/storage/r2-adapter";
 import { validateEventForPublish } from "@/lib/shared/event-validation";
 import type {
   CentralizedClubEvent,
   EventStatus,
-  EventPosterItem,
   RoleType,
   LeadDomain,
+  ActivityLog,
 } from "@/types/models";
+
+/**
+ * Checks whether the Cloudflare Worker API is configured.
+ * - In development: returns true because the Vite development middleware handles /api endpoints.
+ * - In production: returns true only if VITE_WORKER_API_URL is explicitly set.
+ */
+export function isWorkerConfigured(): boolean {
+  if (import.meta.env.DEV) {
+    return true;
+  }
+  const envUrl = (import.meta.env["VITE_WORKER_API_URL"] as string)?.trim();
+  return Boolean(envUrl && envUrl.length > 0);
+}
+
+/**
+ * Resolves the Cloudflare Worker API base URL.
+ * Throws a clear configuration error in production if VITE_WORKER_API_URL is missing.
+ */
+export function getWorkerApiBase(): string {
+  const envUrl = (import.meta.env["VITE_WORKER_API_URL"] as string)?.trim();
+  if (envUrl) {
+    return envUrl.replace(/\/+$/, "");
+  }
+
+  if (import.meta.env.DEV) {
+    return "";
+  }
+
+  throw new Error(
+    "Configuration Error: Missing VITE_WORKER_API_URL environment variable. The public Cloudflare Worker API endpoint must be configured in production."
+  );
+}
 
 // Fallback seed events for offline / unconfigured mode
 const FALLBACK_EVENTS: CentralizedClubEvent[] = [
@@ -49,20 +80,12 @@ const FALLBACK_EVENTS: CentralizedClubEvent[] = [
     endDate: "2026-10-24T16:00:00.000Z",
     timeDisplay: "10:00 AM - 4:00 PM IST",
     venue: "Lab Complex 3 // AB-1 High-Perf Lab",
+    mode: "In-Person",
+    speaker: "AI/ML Core Lead",
     description:
       "A hands-on, hardware-accelerated deep dive into neural tensor architectures, gradient descent graph compilation, and fine-tuning computer vision backbones.",
     longBio:
       "This 6-hour intensive bootcamp guides developers through tensor manipulation, building custom autoencoders, and deploying models to mobile & edge backends using TensorRT and ONNX runtime.",
-    posters: [
-      {
-        id: "poster-fallback-1",
-        url: "/assets/event-workshop.jpg",
-        storagePath: "events/pytorch-bootcamp-2026/posters/poster-fallback-1.jpg",
-        caption: "Main Technical Poster",
-        isPrimary: true,
-        displayOrder: 1,
-      },
-    ],
     maxCapacity: 200,
     currentRegistrations: 142,
     registrationDeadline: "2026-10-23T23:59:59.000Z",
@@ -88,20 +111,12 @@ const FALLBACK_EVENTS: CentralizedClubEvent[] = [
     endDate: "2026-11-16T21:00:00.000Z",
     timeDisplay: "9:00 AM Fri - 9:00 PM Sun",
     venue: "Innovation Center & Central Auditorium",
+    mode: "In-Person",
+    speaker: "DSC Executive Board",
     description:
       "36 hours of relentless engineering, machine learning pipelines, distributed system architectures, and edge deployment challenges with ₹1,00,000 in cash prizes.",
     longBio:
       "Join 400+ top collegiate developers across India. Tracks include Autonomous Agents, Distributed Data Infrastructure, Privacy-Preserving ML, and Decentralized Systems.",
-    posters: [
-      {
-        id: "poster-fallback-2",
-        url: "/assets/event-hackathon.jpg",
-        storagePath: "events/datahacks-26/posters/poster-fallback-2.jpg",
-        caption: "Flagship Hackathon Banner",
-        isPrimary: true,
-        displayOrder: 1,
-      },
-    ],
     maxCapacity: 400,
     currentRegistrations: 388,
     registrationDeadline: "2026-11-10T23:59:59.000Z",
@@ -165,14 +180,22 @@ export async function getEventsForAdmin(
 
 /**
  * Retrieves published events for public site consumption.
+ * Draft events are never returned and blocked by Firestore security rules.
  */
 export async function getPublishedEvents(): Promise<CentralizedClubEvent[]> {
   if (!isFirebaseConfigured()) {
+    if (import.meta.env.PROD) {
+      throw new Error(
+        "Configuration Error: Firebase client configuration is missing in production."
+      );
+    }
     return localEventsStore.filter((e) => e.status === "published");
   }
 
   const db = getFirebaseFirestore();
-  if (!db) return [];
+  if (!db) {
+    throw new Error("Firestore service is unavailable.");
+  }
 
   const q = query(
     collection(db, FIRESTORE_COLLECTIONS.EVENTS),
@@ -181,7 +204,62 @@ export async function getPublishedEvents(): Promise<CentralizedClubEvent[]> {
   );
 
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as CentralizedClubEvent[];
+  const events = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as CentralizedClubEvent[];
+  return events.filter((e) => e.status === "published");
+}
+
+/**
+ * Retrieves archived events for the public past-events/archive directory.
+ * Uses a single-field status equality query matching Firestore public read rules
+ * and sorts descending by startDate in memory.
+ */
+export async function getArchivedEvents(): Promise<CentralizedClubEvent[]> {
+  if (!isFirebaseConfigured()) {
+    if (import.meta.env.PROD) {
+      throw new Error(
+        "Configuration Error: Firebase client configuration is missing in production."
+      );
+    }
+    return localEventsStore.filter((e) => e.status === "archived");
+  }
+
+  const db = getFirebaseFirestore();
+  if (!db) {
+    throw new Error("Firestore service is unavailable.");
+  }
+
+  const q = query(
+    collection(db, FIRESTORE_COLLECTIONS.EVENTS),
+    where("status", "==", "archived")
+  );
+
+  const snapshot = await getDocs(q);
+  const events = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as CentralizedClubEvent[];
+  return events
+    .filter((e) => e.status === "archived")
+    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+}
+
+/**
+ * Retrieves recent system audit logs from Firestore `/activity_logs`.
+ * Restricted to Super Admin & Faculty Coordinator via Firestore security rules.
+ */
+export async function getActivityLogsFromFirestore(maxLogs = 100): Promise<ActivityLog[]> {
+  if (!isFirebaseConfigured()) {
+    return [];
+  }
+
+  const db = getFirebaseFirestore();
+  if (!db) return [];
+
+  const q = query(
+    collection(db, FIRESTORE_COLLECTIONS.ACTIVITY_LOGS),
+    orderBy("timestamp", "desc"),
+    limit(maxLogs)
+  );
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as ActivityLog[];
 }
 
 /**
@@ -229,10 +307,14 @@ export async function createEventDraft(
     },
     createdAt: now,
     updatedAt: now,
-    posters: data.posters || [],
   };
 
   if (!isFirebaseConfigured()) {
+    if (import.meta.env.PROD) {
+      throw new Error(
+        "Configuration Error: Firebase is unconfigured in production. Offline simulation is disabled."
+      );
+    }
     localEventsStore.unshift(newEvent);
     return newEvent;
   }
@@ -291,6 +373,11 @@ export async function updateEventDraft(
   };
 
   if (!isFirebaseConfigured()) {
+    if (import.meta.env.PROD) {
+      throw new Error(
+        "Configuration Error: Firebase is unconfigured in production. Offline simulation is disabled."
+      );
+    }
     const idx = localEventsStore.findIndex((e) => e.id === eventId);
     if (idx >= 0 && localEventsStore[idx]) {
       const existing = localEventsStore[idx]!;
@@ -337,6 +424,11 @@ async function callTrustedEventLifecycle(
   eventId: string
 ): Promise<{ success: boolean; message: string; newStatus?: EventStatus }> {
   if (!isFirebaseConfigured()) {
+    if (import.meta.env.PROD) {
+      throw new Error(
+        "Configuration Error: Firebase is unconfigured in production. Offline simulation is disabled."
+      );
+    }
     // Offline / unconfigured fallback
     const idx = localEventsStore.findIndex((e) => e.id === eventId);
     if (idx >= 0 && localEventsStore[idx]) {
@@ -461,7 +553,8 @@ export async function archiveEvent(
 }
 
 /**
- * Deletes an event and all associated posters in Storage.
+ * Deletes an event via the trusted Worker backend API.
+ * The client browser NEVER deletes event documents directly from Firestore.
  * Strictly restricted to Super Admin.
  */
 export async function deleteEvent(
@@ -473,25 +566,41 @@ export async function deleteEvent(
   }
 
   if (!isFirebaseConfigured()) {
+    if (import.meta.env.PROD) {
+      throw new Error(
+        "Configuration Error: Firebase is unconfigured in production. Offline simulation is disabled."
+      );
+    }
     localEventsStore = localEventsStore.filter((e) => e.id !== eventId);
     return;
   }
 
-  const db = getFirebaseFirestore();
-  if (!db) throw new Error("Firestore instance unavailable.");
+  const auth = getFirebaseAuth();
+  const currentUser = auth?.currentUser;
+  if (!currentUser) {
+    throw new Error("Authentication Required: You must be logged in as Super Admin to delete events.");
+  }
 
-  const eventRef = doc(db, FIRESTORE_COLLECTIONS.EVENTS, eventId);
-  const snap = await getDoc(eventRef);
-  if (snap.exists()) {
-    const event = snap.data() as CentralizedClubEvent;
-    // Clean up all posters in Storage
-    if (Array.isArray(event.posters)) {
-      for (const poster of event.posters) {
-        if (poster.storagePath) {
-          await deleteEventPoster(poster.storagePath).catch(() => {});
-        }
-      }
-    }
-    await deleteDoc(eventRef);
+  const idToken = await currentUser.getIdToken(true);
+  const apiBase = getWorkerApiBase();
+  const endpointUrl = `${apiBase}/api/events/${eventId}`;
+
+  const response = await fetch(endpointUrl, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorBody = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      message?: string;
+    };
+    const errorMessage =
+      errorBody.error ||
+      errorBody.message ||
+      `Server rejected event deletion with status ${response.status}.`;
+    throw new Error(errorMessage);
   }
 }

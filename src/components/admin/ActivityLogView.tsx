@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { dataEngine } from "@/lib/data-engine";
+import { isFirebaseConfigured } from "@/lib/firebase/config";
+import { getActivityLogsFromFirestore } from "@/lib/firebase/events";
 import type { ActivityLog } from "@/types/models";
 import { Search, History, Download, RefreshCw } from "lucide-react";
 
@@ -10,9 +12,17 @@ export const ActivityLogView: React.FC = () => {
   const [moduleFilter, setModuleFilter] = useState("All");
 
   const fetchLogs = async () => {
+    setLoading(true);
     try {
-      const all = await dataEngine.getActivityLogs();
-      setLogs(all);
+      if (isFirebaseConfigured()) {
+        const firestoreLogs = await getActivityLogsFromFirestore(100);
+        setLogs(firestoreLogs);
+      } else {
+        const all = await dataEngine.getActivityLogs();
+        setLogs(all);
+      }
+    } catch (err) {
+      console.error("[DSC ActivityLogView] Failed to fetch activity logs:", err);
     } finally {
       setLoading(false);
     }

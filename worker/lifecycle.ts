@@ -162,6 +162,70 @@ export async function executeWorkerLifecycleTransition(params: {
   };
 }
 
+/**
+ * Authoritatively deletes an event document from Firestore.
+ * Restricted strictly to Super Admin.
+ */
+export async function executeWorkerEventDeletion(params: {
+  projectId: string;
+  firestoreAccessToken: string;
+  user: VerifiedUser;
+  eventId: string;
+}): Promise<{ success: boolean; deletedEventId: string; message: string }> {
+  const { projectId, firestoreAccessToken, user, eventId } = params;
+
+  if (user.role !== "super_admin") {
+    throw new LifecycleError("Permission Denied: Only Super Admin can delete events.", 403);
+  }
+
+  if (!eventId || typeof eventId !== "string" || eventId.trim() === "") {
+    throw new LifecycleError("Missing or invalid eventId parameter.", 400);
+  }
+
+  const eventDoc = await getEventDocument<{ title?: string }>(
+    projectId,
+    firestoreAccessToken,
+    eventId
+  );
+
+  if (!eventDoc) {
+    throw new LifecycleError(`Event document "/events/${eventId}" does not exist.`, 404);
+  }
+
+  const eventData = eventDoc.data;
+
+  // 1. Delete document via Firestore REST API
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/events/${eventId}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${firestoreAccessToken}`,
+    },
+  });
+
+  if (!res.ok && res.status !== 404) {
+    const errText = await res.text();
+    throw new Error(`Firestore delete failed (HTTP ${res.status}): ${errText}`);
+  }
+
+  // 2. Record audit log
+  await recordActivityLog(projectId, firestoreAccessToken, {
+    actorEmail: user.email || "super_admin@dscvitb.com",
+    actorName: user.name || "Super Admin",
+    actorRole: "super_admin",
+    actionType: "EVENT_DELETE",
+    targetModule: "Settings",
+    targetEntityId: eventId,
+    details: `Super Admin (${user.email}) permanently deleted event "${eventData.title || eventId}".`,
+  });
+
+  return {
+    success: true,
+    deletedEventId: eventId,
+    message: `Event "${eventData.title || eventId}" was successfully deleted.`,
+  };
+}
+
 export class LifecycleError extends Error {
   statusCode: number;
   details?: string[];

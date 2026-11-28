@@ -2,11 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Navbar } from "@/components/sections/Navbar";
 import { FooterSection } from "@/components/sections/FooterSection";
+import { SiloEventModal } from "@/components/silo/SiloEventModal";
 import {
-  SiloEventModal,
   formatEventDate,
   getEventBadgeLabel,
-} from "@/components/silo/SiloEventModal";
+} from "@/lib/shared/event-format";
 import { usePublicEvents } from "@/hooks/usePublicEvents";
 import type { CentralizedClubEvent } from "@/types/models";
 import { Calendar, Clock, MapPin, Ticket, Users, AlertCircle, RefreshCw, Globe } from "lucide-react";

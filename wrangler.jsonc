@@ -13,15 +13,13 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
-
   // Public Worker Environment Variables (Non-sensitive)
   // To migrate frontend to Cloudflare Pages later, update ALLOWED_ORIGIN below
   // (single origin or comma-separated list during transition, e.g. "https://dscvitb.vercel.app,https://dscvitb.pages.dev")
   "vars": {
     "FIREBASE_PROJECT_ID": "dscvitb-ac7bf",
-    "ALLOWED_ORIGIN": "https://dscvitb.vercel.app"
+    "ALLOWED_ORIGIN": "https://dsc-vitb.vercel.app"
   }
-
   // SENSITIVE SECRETS:
   // NEVER put secrets in this file or commit them to Git.
   // Set them using Wrangler CLI before deployment:

@@ -9,7 +9,9 @@ import { SiloUpcomingEvents } from "@/components/silo/SiloUpcomingEvents";
 import { SiloPlanYourVisit } from "@/components/silo/SiloPlanYourVisit";
 import { SiloContact } from "@/components/silo/SiloContact";
 import { FooterSection } from "@/components/sections/FooterSection";
-import { SiloEventModal, SiloEventData } from "@/components/silo/SiloEventModal";
+import { SiloEventModal } from "@/components/silo/SiloEventModal";
+import { usePublicEvents } from "@/hooks/usePublicEvents";
+import type { CentralizedClubEvent } from "@/types/models";
 import { ArrowRight, Users, UserPlus } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -32,7 +34,8 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const [selectedEvent, setSelectedEvent] = useState<SiloEventData | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CentralizedClubEvent | null>(null);
+  const { publishedEvents, loading, error, refetch } = usePublicEvents();
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-900">
@@ -49,11 +52,22 @@ function Index() {
         {/* 02 // Sub-Domains Division (ML, Data Eng, Interactive Dev, Analytics) */}
         <SiloDomains />
 
-        {/* 03 // This Week Section (Featured Flagships & Detailed Event Posters) */}
-        <SiloThisWeek onSelectEvent={(event) => setSelectedEvent(event)} />
+        {/* 03 // This Week Section (Featured Published Events) */}
+        <SiloThisWeek
+          events={publishedEvents}
+          loading={loading}
+          error={error}
+          onRetry={refetch}
+          onSelectEvent={(event) => setSelectedEvent(event)}
+        />
 
         {/* 04 // Upcoming Events Grid */}
-        <SiloUpcomingEvents onSelectEvent={(event) => setSelectedEvent(event)} />
+        <SiloUpcomingEvents
+          events={publishedEvents}
+          loading={loading}
+          error={error}
+          onSelectEvent={(event) => setSelectedEvent(event)}
+        />
 
         {/* 05 // Plan Your Visit / Campus Logistics & Guidelines */}
         <SiloPlanYourVisit />

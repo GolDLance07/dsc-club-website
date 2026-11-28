@@ -117,30 +117,74 @@ service cloud.firestore {
         (isTeamLead() && (resource.data.domainScope == getUserDomain() || resource.data.domainScope == 'None'));
 
       // CREATE:
-      // - Super Admin can create events with any status.
-      // - Team Leads can create events ONLY as 'draft' for their assigned domain.
-      allow create: if isSuperAdmin() ||
-        (isTeamLead() &&
-         request.resource.data.status == 'draft' &&
-         request.resource.data.domainScope == getUserDomain() &&
-         request.resource.data.createdBy.uid == request.auth.uid);
+      // - All client creations MUST initialize with status == 'draft' and 0 registrations.
+      // - Protected lifecycle timestamps ('publishedAt', 'archivedAt') CANNOT be set by client.
+      // - Creator must match authenticated UID.
+      // - Super Admin can create drafts for any valid domain.
+      // - Team Leads can create drafts ONLY within their assigned domainScope.
+      allow create: if isAuthenticated() &&
+        request.resource.data.status == 'draft' &&
+        request.resource.data.currentRegistrations == 0 &&
+        !('publishedAt' in request.resource.data) &&
+        !('archivedAt' in request.resource.data) &&
+        request.resource.data.createdBy.uid == request.auth.uid &&
+        (
+          isSuperAdmin() ||
+          (isTeamLead() && request.resource.data.domainScope == getUserDomain())
+        );
 
       // UPDATE:
-      // - Super Admin can update any event.
-      // - Team Leads can update content fields ONLY on draft events in their domain.
-      // - Team Leads CANNOT change status to 'published' or alter system counters.
-      allow update: if isSuperAdmin() ||
-        (isTeamLead() &&
-         resource.data.domainScope == getUserDomain() &&
-         request.resource.data.domainScope == getUserDomain() &&
-         resource.data.status == 'draft' &&
-         request.resource.data.status == 'draft' &&
-         request.resource.data.createdBy == resource.data.createdBy &&
-         request.resource.data.createdAt == resource.data.createdAt &&
-         request.resource.data.currentRegistrations == resource.data.currentRegistrations);
+      // - CLIENT-SIDE LIFECYCLE STATUS CHANGES ARE DENIED FOR ALL ROLES (including Super Admin).
+      // - Status transitions ('published', 'draft', 'archived') MUST go through trusted backend (Admin SDK).
+      // - Creator, creation timestamp, registrations counter, and lifecycle timestamps are strictly IMMUTABLE from client.
+      // - Super Admin can edit content fields on any event.
+      // - Team Leads can edit permitted content fields ONLY on draft events in their domain.
+      allow update: if isAuthenticated() &&
+        // Status is strictly immutable from all client-side requests:
+        request.resource.data.status == resource.data.status &&
+        // System and creator fields are strictly immutable from all client-side requests:
+        request.resource.data.createdBy == resource.data.createdBy &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.currentRegistrations == resource.data.currentRegistrations &&
+        // Lifecycle timestamps cannot be forged or altered by client:
+        ((!('publishedAt' in request.resource.data) && !('publishedAt' in resource.data)) ||
+          request.resource.data.publishedAt == resource.data.publishedAt) &&
+        ((!('archivedAt' in request.resource.data) && !('archivedAt' in resource.data)) ||
+          request.resource.data.archivedAt == resource.data.archivedAt) &&
+        (
+          // Case 1: Super Admin content edits across any domain
+          isSuperAdmin() ||
+          // Case 2: Team Lead content edits strictly within own domain on drafts only
+          (
+            isTeamLead() &&
+            resource.data.status == 'draft' &&
+            request.resource.data.status == 'draft' &&
+            resource.data.domainScope == getUserDomain() &&
+            request.resource.data.domainScope == getUserDomain() &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'title',
+              'tagline',
+              'category',
+              'startDate',
+              'endDate',
+              'timeDisplay',
+              'venue',
+              'mode',
+              'speaker',
+              'description',
+              'longBio',
+              'maxCapacity',
+              'registrationDeadline',
+              'isRegistrationOpen',
+              'externalRegistrationUrl',
+              'updatedAt'
+            ])
+          )
+        );
 
-      // DELETE: Strictly Super Admin.
-      allow delete: if isSuperAdmin();
+      // DELETE:
+      // Client-side deletes are completely disabled. Deletions MUST go through trusted Worker API.
+      allow delete: if false;
     }
 
     // =========================================================================

@@ -23,11 +23,11 @@ export const FirebaseConfigNotice: React.FC = () => {
           </span>
           <pre className="font-mono text-[11px] text-slate-300 space-y-1 overflow-x-auto leading-relaxed">
             <div><span className="text-cyan-400">VITE_FIREBASE_API_KEY</span>="AIzaSy..."</div>
-            <div><span className="text-cyan-400">VITE_FIREBASE_AUTH_DOMAIN</span>="dscvitb.firebaseapp.com"</div>
-            <div><span className="text-cyan-400">VITE_FIREBASE_PROJECT_ID</span>="dscvitb"</div>
-            <div><span className="text-cyan-400">VITE_FIREBASE_STORAGE_BUCKET</span>="dscvitb.firebasestorage.app"</div>
+            <div><span className="text-cyan-400">VITE_FIREBASE_AUTH_DOMAIN</span>="dscvitb-ac7bf.firebaseapp.com"</div>
+            <div><span className="text-cyan-400">VITE_FIREBASE_PROJECT_ID</span>="dscvitb-ac7bf"</div>
             <div><span className="text-cyan-400">VITE_FIREBASE_MESSAGING_SENDER_ID</span>="123456789"</div>
             <div><span className="text-cyan-400">VITE_FIREBASE_APP_ID</span>="1:123456789:web:abcdef"</div>
+            <div><span className="text-cyan-400">VITE_WORKER_API_URL</span>="https://dsc-event-lifecycle-worker.&lt;subdomain&gt;.workers.dev"</div>
           </pre>
         </div>
 

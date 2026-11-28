@@ -39,6 +39,11 @@ import {
 } from "../worker/lifecycle.ts";
 
 import {
+  executeWorkerRoleAssignment,
+  RbacError,
+} from "../worker/rbac.ts";
+
+import {
   getFirestoreAccessToken,
   ConcurrencyError,
 } from "../worker/firestore.ts";
@@ -404,9 +409,9 @@ describe("1. Worker Authorization & Token Verification", () => {
     assert.equal(verified.email, "president@dscvitb.com");
   });
 
-  test("Worker CORS: wrangler.jsonc enforces exact Vercel origin without wildcard", () => {
+  test("Worker CORS: wrangler.jsonc enforces exact HTTPS origin without wildcard", () => {
     const wranglerRaw = fs.readFileSync(path.resolve(process.cwd(), "wrangler.jsonc"), "utf-8");
-    assert(wranglerRaw.includes('"ALLOWED_ORIGIN": "https://dscvitb.vercel.app"'));
+    assert(/"ALLOWED_ORIGIN"\s*:\s*"https:\/\/[^"]+"/.test(wranglerRaw));
     assert(!wranglerRaw.includes('"ALLOWED_ORIGIN": "*"'));
   });
 
@@ -818,5 +823,279 @@ describe("4. End-to-End Database Lifecycle Execution & Audit Trail", () => {
       .where("actionType", "==", "EVENT_DELETE")
       .get();
     assert.equal(deleteLogs.size, 1);
+  });
+});
+
+// =========================================================================
+// 5. RBAC Role Assignment Security & Identity Toolkit Integration
+// =========================================================================
+describe("5. RBAC Role Assignment Security & Identity Toolkit Integration", () => {
+  const projectId = "dscvitb-ac7bf";
+  const superAdminActor = {
+    uid: "sa-uid-1",
+    email: "president@dscvitb.com",
+    name: "President",
+    role: "super_admin",
+    leadDomain: "None",
+  };
+
+  test("Worker HTTP /api/admin/assign-role rejects missing Bearer token with 401", async () => {
+    const req = new Request("https://worker.test/api/admin/assign-role", {
+      method: "POST",
+      headers: {
+        Origin: "https://dscvitb.vercel.app",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: "newlead@vitbhopal.ac.in",
+        role: "team_lead",
+        leadDomain: "Technical",
+      }),
+    });
+
+    const env = { ALLOWED_ORIGIN: "https://dscvitb.vercel.app", FIREBASE_PROJECT_ID: projectId };
+    const res = await workerHandler.fetch(req, env, {});
+    assert.equal(res.status, 401);
+    assert.equal(res.headers.get("Access-Control-Allow-Origin"), "https://dscvitb.vercel.app");
+  });
+
+  test("Rejects 'member', 'team_lead', and 'faculty_coordinator' from assigning roles (403)", async () => {
+    for (const unauthorizedRole of ["member", "team_lead", "faculty_coordinator"]) {
+      await assert.rejects(
+        async () => {
+          await executeWorkerRoleAssignment({
+            projectId,
+            identityAccessToken: "fake-id-token",
+            firestoreAccessToken: "fake-fs-token",
+            actor: {
+              uid: `actor-${unauthorizedRole}`,
+              email: `${unauthorizedRole}@vitbhopal.ac.in`,
+              name: "Unauthorized",
+              role: unauthorizedRole,
+              leadDomain: unauthorizedRole === "team_lead" ? "Technical" : "None",
+            },
+            targetEmail: "target@vitbhopal.ac.in",
+            role: "super_admin",
+          });
+        },
+        (err) => {
+          assert(err instanceof RbacError);
+          assert.equal(err.statusCode, 403);
+          assert(err.message.includes("super_admin"));
+          return true;
+        }
+      );
+    }
+  });
+
+  test("Rejects invalid role values and invalid team_lead domains (400)", async () => {
+    await assert.rejects(
+      async () => {
+        await executeWorkerRoleAssignment({
+          projectId,
+          identityAccessToken: "fake",
+          firestoreAccessToken: "fake",
+          actor: superAdminActor,
+          targetEmail: "target@vitbhopal.ac.in",
+          role: "root_god_mode",
+        });
+      },
+      (err) => {
+        assert(err instanceof RbacError);
+        assert.equal(err.statusCode, 400);
+        assert(err.message.includes("Invalid role"));
+        return true;
+      }
+    );
+
+    await assert.rejects(
+      async () => {
+        await executeWorkerRoleAssignment({
+          projectId,
+          identityAccessToken: "fake",
+          firestoreAccessToken: "fake",
+          actor: superAdminActor,
+          targetEmail: "target@vitbhopal.ac.in",
+          role: "team_lead",
+          leadDomain: "None",
+        });
+      },
+      (err) => {
+        assert(err instanceof RbacError);
+        assert.equal(err.statusCode, 400);
+        assert(err.message.includes("Invalid leadDomain"));
+        return true;
+      }
+    );
+  });
+
+  test("Rejects self-assignment / self-promotion by email or UID (403)", async () => {
+    await assert.rejects(
+      async () => {
+        await executeWorkerRoleAssignment({
+          projectId,
+          identityAccessToken: "fake",
+          firestoreAccessToken: "fake",
+          actor: superAdminActor,
+          targetEmail: "president@dscvitb.com",
+          role: "super_admin",
+        });
+      },
+      (err) => {
+        assert(err instanceof RbacError);
+        assert.equal(err.statusCode, 403);
+        assert(err.message.includes("cannot modify or promote their own role"));
+        return true;
+      }
+    );
+
+    const mockFetchSameUid = async () =>
+      new Response(JSON.stringify({ users: [{ localId: "sa-uid-1", email: "alias@vitbhopal.ac.in" }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+
+    await assert.rejects(
+      async () => {
+        await executeWorkerRoleAssignment({
+          projectId,
+          identityAccessToken: "fake",
+          firestoreAccessToken: "fake",
+          actor: superAdminActor,
+          targetEmail: "alias@vitbhopal.ac.in",
+          role: "super_admin",
+          fetchFn: mockFetchSameUid,
+        });
+      },
+      (err) => {
+        assert(err instanceof RbacError);
+        assert.equal(err.statusCode, 403);
+        return true;
+      }
+    );
+  });
+
+  test("Handles Firebase Auth lookup not found (404) and upstream API error (502) safely", async () => {
+    const mockNotFound = async () =>
+      new Response(JSON.stringify({ users: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+
+    await assert.rejects(
+      async () => {
+        await executeWorkerRoleAssignment({
+          projectId,
+          identityAccessToken: "fake",
+          firestoreAccessToken: "fake",
+          actor: superAdminActor,
+          targetEmail: "missing@vitbhopal.ac.in",
+          role: "team_lead",
+          leadDomain: "Technical",
+          fetchFn: mockNotFound,
+        });
+      },
+      (err) => {
+        assert(err instanceof RbacError);
+        assert.equal(err.statusCode, 404);
+        assert(err.message.includes("sign in with Google once first"));
+        return true;
+      }
+    );
+
+    const mockUpstreamFail = async () =>
+      new Response("Internal Error", { status: 500 });
+
+    await assert.rejects(
+      async () => {
+        await executeWorkerRoleAssignment({
+          projectId,
+          identityAccessToken: "fake",
+          firestoreAccessToken: "fake",
+          actor: superAdminActor,
+          targetEmail: "target@vitbhopal.ac.in",
+          role: "faculty_coordinator",
+          fetchFn: mockUpstreamFail,
+        });
+      },
+      (err) => {
+        assert(err instanceof RbacError);
+        assert.equal(err.statusCode, 502);
+        return true;
+      }
+    );
+  });
+
+  test("Super Admin assigns team_lead role via Identity Toolkit REST API and sets exact customAttributes", async () => {
+    let capturedLookupBody = null;
+    let capturedUpdateBody = null;
+
+    const mockFetchSuccess = async (url, init) => {
+      if (url.includes("accounts:lookup")) {
+        capturedLookupBody = JSON.parse(init.body);
+        return new Response(
+          JSON.stringify({
+            users: [{ localId: "target-uid-99", email: "rohan@vitbhopal.ac.in", displayName: "Rohan Gupta" }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (url.includes("accounts:update")) {
+        capturedUpdateBody = JSON.parse(init.body);
+        return new Response(JSON.stringify({ localId: "target-uid-99" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    };
+
+    const saPath = path.resolve(process.cwd(), "serviceAccountKey.json");
+    const sa = JSON.parse(fs.readFileSync(saPath, "utf-8"));
+    const fsToken = await getFirestoreAccessToken(sa.client_email, sa.private_key);
+
+    const res = await executeWorkerRoleAssignment({
+      projectId,
+      identityAccessToken: "mock-identity-token",
+      firestoreAccessToken: fsToken,
+      actor: superAdminActor,
+      targetEmail: "rohan@vitbhopal.ac.in",
+      fullName: "Rohan Gupta",
+      role: "team_lead",
+      leadDomain: "AI & Data Science",
+      title: "AI & Data Science Lead",
+      fetchFn: mockFetchSuccess,
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(res.uid, "target-uid-99");
+    assert.equal(res.role, "team_lead");
+    assert.equal(res.leadDomain, "AI & Data Science");
+    assert.deepEqual(capturedLookupBody, { email: ["rohan@vitbhopal.ac.in"] });
+    assert.equal(capturedUpdateBody.localId, "target-uid-99");
+    assert.deepEqual(JSON.parse(capturedUpdateBody.customAttributes), {
+      role: "team_lead",
+      leadDomain: "AI & Data Science",
+      title: "AI & Data Science Lead",
+    });
+
+    // Cleanup seeded test role doc from Firestore
+    const db = getAdminDb();
+    await db.collection("user_roles").doc("target-uid-99").delete();
+  });
+
+  test("TeamLeadManager & roles client never silently succeed on Worker error", () => {
+    const rolesClientSrc = fs.readFileSync(
+      path.resolve(process.cwd(), "src/lib/firebase/roles.ts"),
+      "utf-8"
+    );
+    const managerSrc = fs.readFileSync(
+      path.resolve(process.cwd(), "src/components/admin/TeamLeadManager.tsx"),
+      "utf-8"
+    );
+    assert(rolesClientSrc.includes("/api/admin/assign-role"));
+    assert(rolesClientSrc.includes("if (!response.ok)"));
+    assert(!managerSrc.includes("dataEngine.assignUserRole"));
+    assert(managerSrc.includes("assignPanelRole"));
   });
 });

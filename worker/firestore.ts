@@ -11,8 +11,8 @@
  * 100% compatible with Cloudflare Workers V8 isolates without Firebase Admin SDK.
  */
 
-// In-memory token cache in Worker isolate
-let cachedOAuthToken: { token: string; expiresAt: number } | null = null;
+// In-memory token cache per OAuth scope in Worker isolate
+const cachedOAuthTokens = new Map<string, { token: string; expiresAt: number }>();
 
 function pemToBinary(pem: string): Uint8Array {
   const cleanPem = pem
@@ -41,15 +41,17 @@ function base64UrlEncode(bytes: Uint8Array): string {
 }
 
 /**
- * Obtains an OAuth2 Bearer token for Cloud Datastore (Firestore) using Google Service Account.
+ * Obtains a scoped OAuth2 Bearer token using a Google Service Account JWT assertion.
  */
-export async function getFirestoreAccessToken(
+export async function getGoogleAccessToken(
   clientEmail: string,
-  privateKeyPem: string
+  privateKeyPem: string,
+  scope: string
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  if (cachedOAuthToken && cachedOAuthToken.expiresAt > now + 60) {
-    return cachedOAuthToken.token;
+  const cached = cachedOAuthTokens.get(scope);
+  if (cached && cached.expiresAt > now + 60) {
+    return cached.token;
   }
 
   const header = { alg: "RS256", typ: "JWT" };
@@ -57,7 +59,7 @@ export async function getFirestoreAccessToken(
     iss: clientEmail,
     sub: clientEmail,
     aud: "https://oauth2.googleapis.com/token",
-    scope: "https://www.googleapis.com/auth/datastore",
+    scope,
     iat: now,
     exp: now + 3600,
   };
@@ -105,12 +107,41 @@ export async function getFirestoreAccessToken(
   }
 
   const tokenData = (await tokenRes.json()) as { access_token: string; expires_in: number };
-  cachedOAuthToken = {
+  const entry = {
     token: tokenData.access_token,
     expiresAt: now + (tokenData.expires_in || 3600),
   };
+  cachedOAuthTokens.set(scope, entry);
 
-  return cachedOAuthToken.token;
+  return entry.token;
+}
+
+/**
+ * Obtains an OAuth2 Bearer token for Cloud Datastore (Firestore) using Google Service Account.
+ */
+export async function getFirestoreAccessToken(
+  clientEmail: string,
+  privateKeyPem: string
+): Promise<string> {
+  return getGoogleAccessToken(
+    clientEmail,
+    privateKeyPem,
+    "https://www.googleapis.com/auth/datastore"
+  );
+}
+
+/**
+ * Obtains an OAuth2 Bearer token for Google Identity Toolkit (Firebase Auth admin REST API).
+ */
+export async function getIdentityToolkitAccessToken(
+  clientEmail: string,
+  privateKeyPem: string
+): Promise<string> {
+  return getGoogleAccessToken(
+    clientEmail,
+    privateKeyPem,
+    "https://www.googleapis.com/auth/identitytoolkit"
+  );
 }
 
 // =========================================================================
@@ -277,6 +308,42 @@ export async function patchEventDocument(
   if (!res.ok) {
     const errText = await res.text();
     throw new Error(`Firestore patch failed (HTTP ${res.status}): ${errText}`);
+  }
+}
+
+/**
+ * Creates or updates a user role document in Firestore `/user_roles/{uid}`.
+ */
+export async function upsertUserRoleDocument(
+  projectId: string,
+  accessToken: string,
+  uid: string,
+  roleData: Record<string, unknown>
+): Promise<void> {
+  const params = new URLSearchParams();
+  for (const field of Object.keys(roleData)) {
+    params.append("updateMask.fieldPaths", field);
+  }
+
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/user_roles/${uid}?${params.toString()}`;
+
+  const fieldsPayload: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(roleData)) {
+    fieldsPayload[k] = jsToFirestoreValue(v);
+  }
+
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fields: fieldsPayload }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Firestore user_roles upsert failed (HTTP ${res.status}): ${errText}`);
   }
 }
 

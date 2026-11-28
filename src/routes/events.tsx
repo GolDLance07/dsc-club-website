@@ -2,8 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Navbar } from "@/components/sections/Navbar";
 import { FooterSection } from "@/components/sections/FooterSection";
-import { SiloEventModal } from "@/components/silo/SiloEventModal";
-import { formatEventDate, getEventBadgeLabel } from "@/lib/shared/event-format";
+import {
+  SiloEventModal,
+  formatEventDate,
+  getEventBadgeLabel,
+} from "@/components/silo/SiloEventModal";
 import { usePublicEvents } from "@/hooks/usePublicEvents";
 import type { CentralizedClubEvent } from "@/types/models";
 import { Calendar, Clock, MapPin, Ticket, Users, AlertCircle, RefreshCw, Globe } from "lucide-react";
@@ -65,22 +68,20 @@ function Events() {
             <button
               type="button"
               onClick={() => setTab("upcoming")}
-              className={`px-5 py-2 rounded-full text-xs font-mono uppercase tracking-wider transition-all duration-300 cursor-pointer ${
-                tab === "upcoming"
-                  ? "bg-[#0052cc] text-white font-bold shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
+              className={`px-5 py-2 rounded-full text-xs font-mono uppercase tracking-wider transition-all duration-300 cursor-pointer ${tab === "upcoming"
+                ? "bg-[#0052cc] text-white font-bold shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+                }`}
             >
               UPCOMING ({publishedEvents.length})
             </button>
             <button
               type="button"
               onClick={() => setTab("past")}
-              className={`px-5 py-2 rounded-full text-xs font-mono uppercase tracking-wider transition-all duration-300 cursor-pointer ${
-                tab === "past"
-                  ? "bg-[#0052cc] text-white font-bold shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
+              className={`px-5 py-2 rounded-full text-xs font-mono uppercase tracking-wider transition-all duration-300 cursor-pointer ${tab === "past"
+                ? "bg-[#0052cc] text-white font-bold shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+                }`}
             >
               ARCHIVE ({archivedEvents.length})
             </button>
@@ -163,11 +164,10 @@ function Events() {
                           {evt.category}
                         </span>
                         <span
-                          className={`text-[9px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-2xs ${
-                            evt.status === "archived"
-                              ? "bg-slate-700 text-white"
-                              : "bg-[#0052cc] text-white"
-                          }`}
+                          className={`text-[9px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-2xs ${evt.status === "archived"
+                            ? "bg-slate-700 text-white"
+                            : "bg-[#0052cc] text-white"
+                            }`}
                         >
                           {badgeLabel}
                         </span>

@@ -8,16 +8,18 @@
  * - GET  /api/health : Worker health check
  * - POST /api/events/lifecycle : Super Admin event lifecycle mutations (publish, unpublish, archive)
  * - DELETE /api/events/:eventId : Super Admin event deletion
+ * - POST /api/admin/assign-role : Super Admin Firebase Auth custom-claims role assignment
  */
 
 import { verifyFirebaseIdToken, type VerifiedUser, AuthError } from "./auth.ts";
-import { getFirestoreAccessToken } from "./firestore.ts";
+import { getFirestoreAccessToken, getIdentityToolkitAccessToken } from "./firestore.ts";
 import {
   executeWorkerLifecycleTransition,
   executeWorkerEventDeletion,
   type LifecycleAction,
   LifecycleError,
 } from "./lifecycle.ts";
+import { executeWorkerRoleAssignment, RbacError } from "./rbac.ts";
 
 export interface Env {
   FIREBASE_PROJECT_ID: string;
@@ -86,6 +88,9 @@ function errorResponse(err: unknown, headers: HeadersInit = {}): Response {
     status = err.statusCode;
     message = err.message;
     details = err.details;
+  } else if (err instanceof RbacError) {
+    status = err.statusCode;
+    message = err.message;
   } else if (err instanceof Error) {
     message = err.message;
     if ("statusCode" in err && typeof (err as { statusCode: number }).statusCode === "number") {
@@ -149,6 +154,14 @@ export default {
         return await getFirestoreAccessToken(env.FIREBASE_CLIENT_EMAIL, env.FIREBASE_PRIVATE_KEY);
       };
 
+      // Helper: Obtain Identity Toolkit Access Token
+      const getIdentityToken = async (): Promise<string> => {
+        if (!env.FIREBASE_CLIENT_EMAIL || !env.FIREBASE_PRIVATE_KEY) {
+          throw new Error("Server configuration error: Firebase service account credentials missing in Worker secrets.");
+        }
+        return await getIdentityToolkitAccessToken(env.FIREBASE_CLIENT_EMAIL, env.FIREBASE_PRIVATE_KEY);
+      };
+
       // 3. Route: POST /api/events/lifecycle
       if (pathname === "/api/events/lifecycle" && request.method === "POST") {
         const user = await authenticate();
@@ -182,6 +195,37 @@ export default {
           firestoreAccessToken: accessToken,
           user,
           eventId,
+        });
+
+        return jsonResponse(result, 200, cors);
+      }
+
+      // 5. Route: POST /api/admin/assign-role (Super Admin Only)
+      if (pathname === "/api/admin/assign-role" && request.method === "POST") {
+        const user = await authenticate();
+        const [accessToken, identityToken] = await Promise.all([
+          getAccessToken(),
+          getIdentityToken(),
+        ]);
+
+        const body = (await request.json().catch(() => ({}))) as {
+          email?: string;
+          fullName?: string;
+          role?: string;
+          leadDomain?: string;
+          title?: string;
+        };
+
+        const result = await executeWorkerRoleAssignment({
+          projectId,
+          identityAccessToken: identityToken,
+          firestoreAccessToken: accessToken,
+          actor: user,
+          targetEmail: body.email || "",
+          fullName: body.fullName,
+          role: body.role || "",
+          leadDomain: body.leadDomain,
+          title: body.title,
         });
 
         return jsonResponse(result, 200, cors);

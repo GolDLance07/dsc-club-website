@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { dataEngine } from "@/lib/data-engine";
+import React, { useState, useEffect, useCallback } from "react";
+import { assignPanelRole, getPanelUserRoles } from "@/lib/firebase/roles";
+import { isWorkerConfigured } from "@/lib/firebase/events";
 import type { UserRoleRecord, LeadDomain, RoleType } from "@/types/models";
 import {
   ShieldCheck,
@@ -10,7 +11,7 @@ import {
   Crown,
   GraduationCap,
   Users,
-  Code2,
+  RefreshCw,
 } from "lucide-react";
 
 interface TeamLeadManagerProps {
@@ -30,66 +31,98 @@ export const TeamLeadManager: React.FC<TeamLeadManagerProps> = ({
 }) => {
   const [roles, setRoles] = useState<UserRoleRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   // Form State
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState<RoleType>("team_lead");
-  const [newTitle, setNewTitle] = useState("Technical Lead");
+  const [newTitle, setNewTitle] = useState("Technical Team Lead");
   const [newDomain, setNewDomain] = useState<LeadDomain>("Technical");
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  const fetchRoles = async () => {
+  const fetchRoles = useCallback(async () => {
     try {
-      const list = await dataEngine.getUserRoles();
+      const list = await getPanelUserRoles();
       setRoles(list);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load panel role records.";
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchRoles();
-    const handleUpdate = () => fetchRoles();
-    window.addEventListener("dsc_data_change", handleUpdate);
-    return () => window.removeEventListener("dsc_data_change", handleUpdate);
-  }, []);
+  }, [fetchRoles]);
 
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
     setSuccessMessage("");
 
-    if (!newEmail.trim() || !newName.trim()) {
+    const trimmedEmail = newEmail.trim().toLowerCase();
+    const trimmedName = newName.trim();
+
+    if (!trimmedEmail || !trimmedName) {
       setErrorMessage("Please enter both full name and valid university email.");
       return;
     }
 
+    if (trimmedEmail === actorEmail.trim().toLowerCase()) {
+      setErrorMessage("Permission Denied: You cannot modify your own role.");
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      await dataEngine.assignUserRole({
-        email: newEmail.trim().toLowerCase(),
-        fullName: newName.trim(),
+      const res = await assignPanelRole({
+        email: trimmedEmail,
+        fullName: trimmedName,
         role: newRole,
         title: newTitle.trim(),
         leadDomain: newRole === "team_lead" ? newDomain : "None",
-        isActive: true,
       });
 
-      setSuccessMessage(`Successfully granted ${newRole} role to ${newEmail}`);
+      setSuccessMessage(
+        res.message ||
+          `Granted ${res.role} role to ${res.email}. They must sign out and sign back in to refresh their Firebase session.`
+      );
       setNewEmail("");
       setNewName("");
       await fetchRoles();
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err: any) {
-      setErrorMessage(err?.message || "Failed to assign role.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to assign role.";
+      setErrorMessage(msg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleRemoveRole = async (roleId: string, email: string) => {
-    if (confirm(`Revoke panel access for ${email}?`)) {
-      await dataEngine.removeUserRole(roleId, actorEmail);
-      await fetchRoles();
+  const handleRemoveRole = async (email: string) => {
+    if (email.toLowerCase() === actorEmail.trim().toLowerCase()) {
+      setErrorMessage("Permission Denied: You cannot revoke your own Super Admin access.");
+      return;
+    }
+
+    if (confirm(`Revoke management panel privileges for ${email} (demote to member)?`)) {
+      setErrorMessage("");
+      setSuccessMessage("");
+      try {
+        const res = await assignPanelRole({
+          email,
+          role: "member",
+          leadDomain: "None",
+          title: "Club Member",
+        });
+        setSuccessMessage(res.message || `Revoked panel access for ${email}.`);
+        await fetchRoles();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to revoke role.";
+        setErrorMessage(msg);
+      }
     }
   };
 
@@ -208,9 +241,11 @@ export const TeamLeadManager: React.FC<TeamLeadManagerProps> = ({
           <div className="flex items-end">
             <button
               type="submit"
-              className="w-full px-4 py-2 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs hover:bg-cyan-400 transition-colors cursor-pointer"
+              disabled={submitting || !isWorkerConfigured()}
+              className="w-full px-4 py-2 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs hover:bg-cyan-400 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
-              + Grant Access
+              {submitting && <RefreshCw className="size-3.5 animate-spin" />}
+              <span>{submitting ? "Granting Access..." : "+ Grant Access"}</span>
             </button>
           </div>
         </div>
@@ -225,48 +260,60 @@ export const TeamLeadManager: React.FC<TeamLeadManagerProps> = ({
         </div>
 
         <div className="divide-y divide-white/5 text-xs">
-          {roles.map((r) => (
-            <div
-              key={r.id}
-              className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-white/5 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-cyan-400">
-                  {r.role === "super_admin" ? (
-                    <Crown className="size-4 text-amber-400" />
-                  ) : r.role === "faculty_coordinator" ? (
-                    <GraduationCap className="size-4 text-purple-400" />
-                  ) : (
-                    <Users className="size-4 text-cyan-400" />
-                  )}
-                </div>
-                <div>
-                  <div className="font-bold text-white text-xs">{r.fullName}</div>
-                  <div className="text-[11px] font-mono text-slate-400">{r.email}</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <span className="font-semibold text-slate-200 block text-xs">{r.title}</span>
-                  <span className="text-[10px] font-mono text-cyan-400">
-                    {r.role === "team_lead" ? `Scope: ${r.leadDomain}` : r.role.toUpperCase()}
-                  </span>
-                </div>
-
-                {r.email !== "neelpandeyofficial@gmail.com" && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveRole(r.id, r.email)}
-                    className="p-2 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition-colors cursor-pointer"
-                    title="Revoke Access"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
-              </div>
+          {loading ? (
+            <div className="p-6 text-center text-slate-400 font-mono text-xs flex items-center justify-center gap-2">
+              <RefreshCw className="size-3.5 animate-spin text-cyan-400" />
+              <span>Loading authorized accounts...</span>
             </div>
-          ))}
+          ) : roles.length === 0 ? (
+            <div className="p-6 text-center text-slate-400 font-mono text-xs">
+              No active panel role records found in Firestore yet.
+            </div>
+          ) : (
+            roles.map((r) => (
+              <div
+                key={r.id}
+                className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-white/5 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-cyan-400">
+                    {r.role === "super_admin" ? (
+                      <Crown className="size-4 text-amber-400" />
+                    ) : r.role === "faculty_coordinator" ? (
+                      <GraduationCap className="size-4 text-purple-400" />
+                    ) : (
+                      <Users className="size-4 text-cyan-400" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-bold text-white text-xs">{r.fullName}</div>
+                    <div className="text-[11px] font-mono text-slate-400">{r.email}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="font-semibold text-slate-200 block text-xs">{r.title}</span>
+                    <span className="text-[10px] font-mono text-cyan-400">
+                      {r.role === "team_lead" ? `Scope: ${r.leadDomain}` : r.role.toUpperCase()}
+                    </span>
+                  </div>
+
+                  {r.email.toLowerCase() !== actorEmail.toLowerCase() &&
+                    r.email.toLowerCase() !== "neelpandeyofficial@gmail.com" && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveRole(r.email)}
+                        className="p-2 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition-colors cursor-pointer"
+                        title="Revoke Access"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

@@ -388,13 +388,18 @@ export class DataEngine {
   }
 
   // -------------------------------------------------------------
-  // 1. User Roles & RBAC
+  // 1. User Roles (Non-authoritative local dev cache ONLY; live RBAC uses Worker + Firebase Auth)
   // -------------------------------------------------------------
   public async getUserRoles(): Promise<UserRoleRecord[]> {
     return getLocal<UserRoleRecord[]>(STORAGE_KEYS.USER_ROLES, INITIAL_USER_ROLES);
   }
 
   public async assignUserRole(newRole: Omit<UserRoleRecord, "id" | "createdAt">): Promise<UserRoleRecord> {
+    if (import.meta.env.PROD) {
+      throw new Error(
+        "Security Error: Local role assignment is disabled in production. Use the Worker /api/admin/assign-role endpoint."
+      );
+    }
     const roles = await this.getUserRoles();
     const existingIndex = roles.findIndex((r) => r.email.toLowerCase() === newRole.email.toLowerCase());
 

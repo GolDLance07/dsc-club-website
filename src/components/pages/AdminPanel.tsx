@@ -41,10 +41,12 @@ export const AdminPanel: React.FC = () => {
     error: authError,
     signInWithGoogle,
     signOut,
+    refreshClaims,
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [signingIn, setSigningIn] = useState<boolean>(false);
+  const [refreshingClaims, setRefreshingClaims] = useState<boolean>(false);
   const [localError, setLocalError] = useState<string>("");
 
   // 1. Unconfigured Environment State
@@ -70,9 +72,10 @@ export const AdminPanel: React.FC = () => {
     setSigningIn(true);
     try {
       await signInWithGoogle();
-    } catch (err: any) {
-      if (err?.code !== "auth/popup-closed-by-user") {
-        setLocalError(err?.message || "Failed to sign in with Google.");
+    } catch (err: unknown) {
+      const firebaseErr = err as { code?: string; message?: string };
+      if (firebaseErr?.code !== "auth/popup-closed-by-user") {
+        setLocalError(firebaseErr?.message || "Failed to sign in with Google.");
       }
     } finally {
       setSigningIn(false);
@@ -167,17 +170,36 @@ export const AdminPanel: React.FC = () => {
             Signed in as <strong className="text-white">{user.email}</strong>.
           </p>
           <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs mb-6 leading-relaxed">
-            This university account does not possess assigned management panel privileges. If you are a Domain Lead or Faculty Coordinator, please contact the Club President to assign your role claims.
+            This university account does not possess assigned management panel privileges. If a Super Admin just granted your role, refresh your permissions or sign out and sign back in to activate your updated token.
           </div>
 
-          <button
-            type="button"
-            onClick={signOut}
-            className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <LogOut className="size-3.5" />
-            <span>Sign Out & Try Another Account</span>
-          </button>
+          <div className="space-y-2.5">
+            <button
+              type="button"
+              disabled={refreshingClaims}
+              onClick={async () => {
+                setRefreshingClaims(true);
+                try {
+                  await refreshClaims();
+                } finally {
+                  setRefreshingClaims(false);
+                }
+              }}
+              className="w-full py-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 text-cyan-300 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`size-3.5 ${refreshingClaims ? "animate-spin" : ""}`} />
+              <span>{refreshingClaims ? "Refreshing Token..." : "Refresh Permissions"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={signOut}
+              className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <LogOut className="size-3.5" />
+              <span>Sign Out &amp; Try Another Account</span>
+            </button>
+          </div>
         </div>
       </div>
     );

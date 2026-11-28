@@ -184,7 +184,8 @@ export function onAuthClaimsStateChanged(
     }
 
     try {
-      const tokenResult = await user.getIdTokenResult();
+      // Force refresh when possible so newly granted custom claims are reflected after reload/login
+      const tokenResult = await user.getIdTokenResult(true).catch(() => user.getIdTokenResult());
       const claims = extractClaimsFromToken(tokenResult);
       callback(user, claims);
     } catch (err) {
